@@ -1,9 +1,10 @@
 ---
-name: "📝 문서화 및 위키 (Documentation)"
+name: "\U0001F4DD 문서화 및 위키 (Documentation)"
 about: 플러그인 사용 가이드, 시스템 아키텍처 다이어그램, 코드 주석 등을 작성할 때 사용합니다.
 title: "[Docs] "
-labels: "📝 docs"
-assignees: ""
+labels: "\U0001F4DD docs"
+assignees: ''
+
 ---
 
 ## 📖 문서화 목적 (Objective)

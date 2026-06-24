@@ -1,9 +1,10 @@
 ---
-name: "🐛 버그 수정 (Bug Report)"
+name: "\U0001F41B 버그 수정 (Bug Report)"
 about: 게임 플레이나 로직 중 발생하는 오류를 제보하고 수정할 때 사용합니다.
 title: "[Bug] "
-labels: "🐛 bug"
-assignees: ""
+labels: "\U0001F41B bug"
+assignees: ''
+
 ---
 
 ## 🐛 버그 설명 (Describe the bug)

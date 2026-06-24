@@ -1,9 +1,10 @@
 ---
-name: "🧪 테스트 코드 작성 (TDD / CQTest)"
+name: "\U0001F9EA 테스트 코드 작성 (TDD / CQTest)"
 about: 새로운 단위/통합 테스트를 작성하거나 로직 검증을 수행할 때 사용합니다.
 title: "[Test] "
-labels: "🧪 test-tdd"
-assignees: ""
+labels: "\U0001F9EA test-tdd"
+assignees: ''
+
 ---
 
 ## 🎯 테스트 목적 (Test Objective)
@@ -42,3 +43,8 @@ assignees: ""
 - [ ] CQTest 프레임워크 기반으로 C++ 테스트 코드가 작성되어야 함.
 - [ ] Session Frontend에서 테스트가 Passed 상태여야 함.
 - [ ] (선택) GitHub Actions CI에서 테스트 통과가 확인되어야 함.
+
+## 🔗 연관된 이슈 및 문서 (References)
+
+- 관련 이슈: #
+- 관련 문서: 노션 링크

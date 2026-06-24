@@ -3,7 +3,8 @@ name: "♻️ 리팩토링 및 최적화 (Refactoring)"
 about: 기존 코드의 구조 개선, 성능 최적화, 기술 부채 해결을 진행할 때 사용합니다.
 title: "[Refactor] "
 labels: "♻️ refactor"
-assignees: ""
+assignees: ''
+
 ---
 
 ## 🛠️ 현재 구조의 문제점 (Current Problems)

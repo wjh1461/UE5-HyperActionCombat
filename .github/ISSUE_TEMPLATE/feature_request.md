@@ -1,9 +1,9 @@
 ---
-name: ✨ 기능 추가 (Feature)
+name: "✨ 기능 추가 (Feature)"
 about: 프로젝트에 새로운 기능이나 로직을 추가할 때 사용합니다.
 title: "[Feat] "
 labels: "✨ feature"
-assignees: ""
+assignees: ''
 
 ---
 
