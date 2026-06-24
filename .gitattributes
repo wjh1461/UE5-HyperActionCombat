@@ -1,0 +1,36 @@
+# 바이너리 파일 LFS 추적
+*.uasset filter=lfs diff=lfs merge=lfs -text
+*.umap filter=lfs diff=lfs merge=lfs -text
+
+# 그 외 언리얼 및 일반 바이너리 확장자 LFS 추적
+*.upk filter=lfs diff=lfs merge=lfs -text
+*.udk filter=lfs diff=lfs merge=lfs -text
+*.ubulk filter=lfs diff=lfs merge=lfs -text
+*.uexp filter=lfs diff=lfs merge=lfs -text
+
+# 오디오 및 영상 파일 LFS 추적
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+
+# 이미지 파일 LFS 추적
+*.png filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.dds filter=lfs diff=lfs merge=lfs -text
+*.hdr filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+
+# 3D 모델 및 애니메이션 파일 LFS 추적
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.abc filter=lfs diff=lfs merge=lfs -text
+
+# 소스 코드 및 설정 파일 줄 바꿈 설정 (Windows/Mac/Linux 호환용)
+*.cpp text eol=lf
+*.h text eol=lf
+*.cs text eol=lf
+*.ini text eol=lf
+*.config text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
