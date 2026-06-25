@@ -41,6 +41,8 @@ public:
 	ATTRIBUTE_ACCESSORS_BASIC(UHACF_AttributeSet, Damage);
 	ATTRIBUTE_ACCESSORS_BASIC(UHACF_AttributeSet, Healing);
 	
+	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
+	
 private:
 	UPROPERTY()
 	FGameplayAttributeData Health;
@@ -65,4 +67,6 @@ private:
 	FGameplayAttributeData Damage;
 	UPROPERTY()
 	FGameplayAttributeData Healing;
+	
+	void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue);
 };
