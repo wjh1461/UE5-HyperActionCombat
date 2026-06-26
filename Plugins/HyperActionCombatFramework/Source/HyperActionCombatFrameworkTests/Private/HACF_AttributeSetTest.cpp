@@ -95,18 +95,7 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsNear(NewPoise, 0.f, KINDA_SMALL_NUMBER));
 		}
 		
-		// // 데미지가 적용되었을 때, Health가 감소해야 함
-		// TEST_METHOD(PostGameplayEffectExecute_DamageApplied_ReducesHealth)
-		// {
-		// 	//ASSERT_THAT(AreEqual());
-		// }
-		//
-		// // 치명적인 데미지가 적용되었을 때, Health가 음수가 아닌 0으로 클램핑되어야 한다
-		// TEST_METHOD(PostGameplayEffectExecute_FatalDamageApplied_HealthClampsToZero)
-		// {
-		// 	//ASSERT_THAT(AreEqual());
-		// }
-		//
+
 		// // 힐링이 적용되었을 때, 최대 체력까지만 Health가 회복되어야 한다
 		// TEST_METHOD(PostGameplayEffectExecute_HealingApplied_RestoresHealthUpToMax)
 		// {

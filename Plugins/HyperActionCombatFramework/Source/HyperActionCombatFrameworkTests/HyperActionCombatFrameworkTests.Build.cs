@@ -27,6 +27,10 @@ public class HyperActionCombatFrameworkTests : ModuleRules
 			{
 				"Core",
                 "HyperActionCombatFramework",
+                
+                "GameplayAbilities",
+                "GameplayTags",
+                
                 "CQTest",
             }
 			);
