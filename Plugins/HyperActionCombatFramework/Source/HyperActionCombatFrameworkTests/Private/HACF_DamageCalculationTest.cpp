@@ -2,6 +2,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayEffect.h"
 #include "AbilitySystem/Attributes/HACF_AttributeSet.h"
+#include "AbilitySystem/Executions/HACF_DamageExecution.h"
 #include "Components/ActorTestSpawner.h"
 
 namespace HyperActionCombatFrameworkTests
@@ -18,7 +19,7 @@ namespace HyperActionCombatFrameworkTests
 			UAbilitySystemComponent* ASC = NewObject<UAbilitySystemComponent>(DummyActor);
 			ASC->RegisterComponent();
 			
-			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(ASC);
+			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(DummyActor);
 			ASC->AddAttributeSetSubobject(AttributeSet);
 			ASC->InitAbilityActorInfo(DummyActor, DummyActor);
 			
@@ -56,31 +57,27 @@ namespace HyperActionCombatFrameworkTests
 			UAbilitySystemComponent* ASC = NewObject<UAbilitySystemComponent>(DummyActor);
 			ASC->RegisterComponent();
 			
-			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(ASC);
+			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(DummyActor);
 			ASC->AddAttributeSetSubobject(AttributeSet);
 			ASC->InitAbilityActorInfo(DummyActor, DummyActor);
 			
 			// 2. 초기 스탯 셋업 (Health 100, Armor 20)
 			AttributeSet->InitHealth(100.f);
 			AttributeSet->InitMaxHealth(100.f);
+			AttributeSet->InitAttackPower(30.f);
 			AttributeSet->InitArmor(20.f);
 			AttributeSet->InitDamage(0.f);
 			
 			// 3. 동적 GameplayEffect 생성 (30의 Damage Attribute 추가)
 			UGameplayEffect* DamageEffect = NewObject<UGameplayEffect>(GetTransientPackage(), "TestDamage");
 			DamageEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
-			
-			FGameplayModifierInfo ModifierInfo;
-			ModifierInfo.Attribute = UHACF_AttributeSet::GetDamageAttribute();
-			ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-			ModifierInfo.ModifierMagnitude = FScalableFloat(30.f);
-			DamageEffect->Modifiers.Add(ModifierInfo);
+			DamageEffect->Executions.Add(FGameplayEffectExecutionDefinition(UHACF_DamageExecution::StaticClass()));
 			
 			// 4. 자신에게 데미지 GE 적용
 			ASC->ApplyGameplayEffectToSelf(DamageEffect, 1.f, ASC->MakeEffectContext());
 			
 			// 5. 검증
-			// 30(데미지) - 20(방어력) = 10(최종 데미지), 100 - 10 = 90의 Health.
+			// 30(공격력) - 20(방어력) = 10(최종 데미지), 100 - 10 = 90의 Health.
 			ASSERT_THAT(IsNear(AttributeSet->GetHealth(), 90.f, KINDA_SMALL_NUMBER));
 			// 계산이 끝난 후 최종 데미지 Attribute는 0으로 초기화 되어야 함.
 			ASSERT_THAT(IsNear(AttributeSet->GetDamage(), 0.f, KINDA_SMALL_NUMBER));
@@ -93,7 +90,7 @@ namespace HyperActionCombatFrameworkTests
 			UAbilitySystemComponent* ASC = NewObject<UAbilitySystemComponent>(DummyActor);
 			ASC->RegisterComponent();
 			
-			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(ASC);
+			UHACF_AttributeSet* AttributeSet = NewObject<UHACF_AttributeSet>(DummyActor);
 			ASC->AddAttributeSetSubobject(AttributeSet);
 			ASC->InitAbilityActorInfo(DummyActor, DummyActor);
 			
@@ -114,6 +111,8 @@ namespace HyperActionCombatFrameworkTests
 			
 			// 10 - 200 = -190 이지만, 0으로 클램핑 되어야 함
 			ASSERT_THAT(IsNear(AttributeSet->GetHealth(), 0.f, KINDA_SMALL_NUMBER));
+			// 계산이 끝난 후 최종 데미지 Attribute는 0으로 초기화 되어야 함.
+			ASSERT_THAT(IsNear(AttributeSet->GetDamage(), 0.f, KINDA_SMALL_NUMBER));
 		}
 	};
 }
