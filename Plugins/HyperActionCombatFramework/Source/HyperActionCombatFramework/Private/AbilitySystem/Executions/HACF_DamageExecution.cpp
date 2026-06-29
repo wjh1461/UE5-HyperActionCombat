@@ -74,13 +74,34 @@ void UHACF_DamageExecution::Execute_Implementation(const FGameplayEffectCustomEx
 	float CriticalDamageMultiplier = 0.f;
 	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CriticalDamageMultiplierDef, EvaluateParameters, CriticalDamageMultiplier);
 	
-	float Armor = 0.f;
-	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorDef, EvaluateParameters, Armor);
+	float TargetArmor = 0.f;
+	ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorDef, EvaluateParameters, TargetArmor);
 	
 	// 데미지 계산식
 	// 공격력, 크리티컬 확률, 크리티컬 데미지 배율, 방어력
-	// 방어력 피해 감소율 = 1 - (적 방어력) ÷ (적 방어력+800+8×캐릭 레벨)
-	const float FinalDamage = FMath::Max(AttackPower - Armor, 0.f);
+	// 스킬 계수
+	// 최종 공격력 = (기본 공격력 + 무기 공격력) * (1 + 공격력 %)
+	// 받는 피해 배율 = (800+8×캐릭 레벨) ÷ (적 방어력 + (800 + 8*캐릭 레벨))
+	// 최종 데미지 = 최종 공격력 * 받는 피해 배율 * 크리티컬 데미지 배율
+	
+	const float AttackerLevel = 1.f;
+
+	const float FinalAttackPower = AttackPower;
+	const float FinalCriticalChance = CriticalChance;
+	
+	// 받는 피해 배율
+	const float FinalTargetArmor = TargetArmor;
+	const float ArmorConstant = 800.f + (8.f * AttackerLevel);
+	const float ArmorMitigationMultiplier = ArmorConstant / (FMath::Max(FinalTargetArmor, 0.f) + ArmorConstant);
+
+	float FinalCriticalDamageMultiplier = 1.f;
+	if (FMath::FRand() <= FinalCriticalChance)
+	{
+		FinalCriticalDamageMultiplier = CriticalDamageMultiplier;
+	}
+	
+	// 최종 데미지
+	const float FinalDamage = FinalAttackPower * ArmorMitigationMultiplier * FinalCriticalDamageMultiplier;
 
 	if (FinalDamage > 0.f)
 	{
