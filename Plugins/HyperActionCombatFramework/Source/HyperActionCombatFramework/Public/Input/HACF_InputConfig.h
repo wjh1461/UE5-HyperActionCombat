@@ -8,6 +8,7 @@
 #include "HACF_InputConfig.generated.h"
 
 class UInputAction;
+class UInputMappingContext;
 
 /**
  * 
@@ -24,6 +25,18 @@ struct FHACF_InputAction
 	FGameplayTag InputTag;
 };
 
+USTRUCT()
+struct FInputMappingContextAndPriority
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere)
+	TSoftObjectPtr<UInputMappingContext> InputMapping;
+	
+	UPROPERTY(EditAnywhere)
+	int32 Priority;
+};
+
 /**
  *
  */
@@ -33,6 +46,11 @@ class HYPERACTIONCOMBATFRAMEWORK_API UHACF_InputConfig : public UDataAsset
 	GENERATED_BODY()
 	
 public:
+	const UInputAction* FindNativeInputActionForTag(const FGameplayTag& InputTag, bool bLogNotFound = true) const;
+	const UInputAction* FindAbilityInputActionForTag(const FGameplayTag& InputTag, bool bLogNotFound = true) const;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TArray<FHACF_InputAction> InputActions;
+	TArray<FHACF_InputAction> AbilityInputActions;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<FHACF_InputAction> NativeInputActions;
 };
