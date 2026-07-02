@@ -13,4 +13,7 @@ UCLASS()
 class HYPERACTIONCOMBATFRAMEWORKTESTS_API UTestGameplayAbility : public UHACF_GameplayAbilityBase
 {
 	GENERATED_BODY()
+	
+public:
+	void SetActivationPolicy(EHACFAbilityActivationPolicy activationPolicy) { ActivationPolicy = activationPolicy; }
 };

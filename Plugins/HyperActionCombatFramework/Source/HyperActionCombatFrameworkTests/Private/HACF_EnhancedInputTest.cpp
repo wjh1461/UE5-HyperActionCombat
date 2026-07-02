@@ -13,7 +13,7 @@ namespace HyperActionCombatFrameworkTests
 {
 	// 1. 테스트 전용 Mock(Test Subclass) 컴포넌트
 	// Protected 멤버들을 단위 테스트에서 접근할 수 있도록 using 선언으로 Public 개방합니다.
-	class FHACF_HeroComponent_Accessor : public UHACF_HeroComponent
+	class UHACF_HeroComponent_Accessor : public UHACF_HeroComponent
 	{
 	public:
 	
@@ -34,7 +34,7 @@ namespace HyperActionCombatFrameworkTests
 	{
 		FActorTestSpawner Spawner;
 		APawn* DummyPawn;
-		FHACF_HeroComponent_Accessor* HeroComponent;
+		UHACF_HeroComponent_Accessor* HeroComponent;
 		UAbilitySystemComponent* ASC;
 		
 		// 매 테스트 시작 전 실행되는 Setup 로직
@@ -55,7 +55,7 @@ namespace HyperActionCombatFrameworkTests
 			RawHeroComponent->RegisterComponent();
 			DummyPawn->AddInstanceComponent(RawHeroComponent);
 		
-			HeroComponent = static_cast<FHACF_HeroComponent_Accessor*>(RawHeroComponent);
+			HeroComponent = static_cast<UHACF_HeroComponent_Accessor*>(RawHeroComponent);
 			
 			// BeginPlay 모사: ASC를 Owner로부터 정상적으로 캐싱하도록 함
 			HeroComponent->BeginPlay();
@@ -66,7 +66,7 @@ namespace HyperActionCombatFrameworkTests
 		TEST_METHOD(AbilityInputTagPressed_AddsHandlesToPressedAndHeldQueues)
 		{
 			// Arrange (준비)
-			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("Input.TestTag"));
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 		
 			// 테스트용 어빌리티 Spec 생성 (이 태그를 입력으로 받는 어빌리티 가정)
 			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
@@ -87,7 +87,7 @@ namespace HyperActionCombatFrameworkTests
 		TEST_METHOD(ProcessAbilityInput_ActivatesAbility_AndClearsPressedQueue)
 		{
 			// Arrange (준비)
-			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("Input.TestTag"));
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 			
 			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
 			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
@@ -119,7 +119,7 @@ namespace HyperActionCombatFrameworkTests
 		TEST_METHOD(AbilityInputTagReleased_MovesHandleToReleasedQueue)
 		{
 			// Arrange
-			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("Input.TestTag"));
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 			
 			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
 			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
@@ -141,7 +141,7 @@ namespace HyperActionCombatFrameworkTests
 		TEST_METHOD(ProcessAbilityInput_ReleasesAbility_AndClearsReleasedQueue)
 		{
 			// Arrange
-			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("Input.TestTag"));
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 			
 			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
 			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);

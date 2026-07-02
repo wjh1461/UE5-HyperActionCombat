@@ -114,7 +114,6 @@ void UHACF_HeroComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 {
 	if (InputTag.IsValid())
 	{
-		//UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
 			// 배열에 저장
@@ -131,7 +130,6 @@ void UHACF_HeroComponent::AbilityInputTagReleased(const FGameplayTag& InputTag)
 {
 	if (InputTag.IsValid())
 	{
-		//UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
 			// 배열에 저장
@@ -157,8 +155,8 @@ void UHACF_HeroComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 		{
 			if (AbilitySpec->Ability && !AbilitySpec->IsActive())
 			{
-				const UHACF_GameplayAbilityBase* HACFAbilityCDO = Cast<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-				if (HACFAbilityCDO) // 입력 타입 필터링 조건 추가해야함
+				const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
+				if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::WhileInputActive)
 				{
 					AbilitiesToActivate.Add(AbilitySpec->Handle);
 				}
@@ -171,12 +169,21 @@ void UHACF_HeroComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 	{
 		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
 		{
-			if (AbilitySpec->Ability && !AbilitySpec->IsActive())
+			if (AbilitySpec->Ability)
 			{
-				const UHACF_GameplayAbilityBase* HACFAbilityCDO = Cast<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-				if (HACFAbilityCDO) // 입력 타입 필터링 조건 추가해야함
+				AbilitySpec->InputPressed = true;
+				
+				if (AbilitySpec->IsActive())
 				{
-					AbilitiesToActivate.Add(AbilitySpec->Handle);
+					ASC->AbilitySpecInputPressed(*AbilitySpec);
+				}
+				else
+				{
+					const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
+					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered) // 입력 타입 필터링 조건 추가해야함
+					{
+						AbilitiesToActivate.Add(AbilitySpec->Handle);
+					}
 				}
 			}
 		}
