@@ -34,7 +34,7 @@ struct FInputMappingContextAndPriority
 	TSoftObjectPtr<UInputMappingContext> InputMapping;
 	
 	UPROPERTY(EditAnywhere)
-	int32 Priority;
+	int32 Priority = 0;
 };
 
 /**
