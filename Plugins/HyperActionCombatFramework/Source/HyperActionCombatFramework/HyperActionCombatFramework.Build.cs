@@ -44,6 +44,7 @@ public class HyperActionCombatFramework : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"Projects"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -42,8 +42,9 @@ public class HyperActionCombatFrameworkTests : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
-				// ... add private dependencies that you statically link with here ...	
+				"SlateCore", 
+				
+				"CQTestEnhancedInput",
 			}
 			);
 		

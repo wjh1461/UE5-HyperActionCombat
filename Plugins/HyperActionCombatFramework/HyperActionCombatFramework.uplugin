@@ -38,6 +38,14 @@
 		{
 			"Name": "CQTest",
 			"Enabled": true
+		},
+		{
+			"Name": "CQTestEnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
 		}
 	]
 }
