@@ -15,7 +15,7 @@ struct FInputMappingContextAndPriority;
 /**
  * 
  */
-UCLASS(ClassGroup=(HACF), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
 class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UActorComponent
 {
 	GENERATED_BODY()

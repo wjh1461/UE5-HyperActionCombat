@@ -26,9 +26,7 @@ void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 										FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// 임시
-	//ProcessAbilityInput(DeltaTime, false);
+	
 }
 
 
@@ -38,6 +36,11 @@ void UHACF_HeroComponent::BeginPlay()
 	Super::BeginPlay();
 	
 	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+	
+	if(APawn* Pawn = Cast<APawn>(GetOwner()))
+	{
+		InitializePlayerInput(Pawn->InputComponent);
+	}
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
