@@ -8,9 +8,8 @@
 #include "Components/ActorComponent.h"
 #include "HACF_HeroComponent.generated.h"
 
-class UAbilitySystemComponent;
+class UHACF_CombatComponent;
 class UHACF_InputConfig;
-struct FGameplayAbilitySpecHandle;
 struct FInputMappingContextAndPriority;
 
 /**
@@ -44,19 +43,6 @@ protected:
 	void Input_AbilityInputTagPressed(FGameplayTag InputTag);
 	void Input_AbilityInputTagReleased(FGameplayTag InputTag);
 	
-	void AbilityInputTagPressed(const FGameplayTag& InputTag);
-	void AbilityInputTagReleased(const FGameplayTag& InputTag);
-	
-	// 입력 처리
-	// =========================================================
-	// PlayerController의 PostProcessInput에서 호출
-	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
-	
-	// 입력 처리용 버퍼
-	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
-	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
-	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
-	
 private:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TArray<FInputMappingContextAndPriority> DefaultMappings;
@@ -65,5 +51,5 @@ private:
 	TObjectPtr<UHACF_InputConfig> InputConfig;
 	
 	UPROPERTY()
-	TObjectPtr<UAbilitySystemComponent> ASC;
+	TObjectPtr<UHACF_CombatComponent> CombatComponent;
 };

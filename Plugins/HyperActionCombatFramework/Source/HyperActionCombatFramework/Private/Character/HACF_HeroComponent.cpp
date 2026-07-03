@@ -8,6 +8,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
 
@@ -36,7 +37,7 @@ void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(GetOwner());
+	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
@@ -102,117 +103,14 @@ void UHACF_HeroComponent::Input_Look(const FInputActionValue& InputActionValue)
 
 void UHACF_HeroComponent::Input_AbilityInputTagPressed(FGameplayTag InputTag)
 {
-	AbilityInputTagPressed(InputTag);
+	check(CombatComponent);
+	
+	CombatComponent->AbilityInputTagPressed(InputTag);
 }
 
 void UHACF_HeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 {
-	AbilityInputTagReleased(InputTag);
+	check(CombatComponent);
+	
+	CombatComponent->AbilityInputTagReleased(InputTag);
 }
-
-void UHACF_HeroComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
-{
-	if (InputTag.IsValid())
-	{
-		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
-		{
-			// 배열에 저장
-			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
-			{
-				InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
-			}
-		}
-	}
-}
-
-void UHACF_HeroComponent::AbilityInputTagReleased(const FGameplayTag& InputTag)
-{
-	if (InputTag.IsValid())
-	{
-		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
-		{
-			// 배열에 저장
-			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
-			{
-				InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.Remove(AbilitySpec.Handle);
-				
-			}
-		}
-	}
-}
-
-void UHACF_HeroComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
-{
-	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
-	AbilitiesToActivate.Reset();
-	
-	// Hold
-	for (const FGameplayAbilitySpecHandle& SpecHandle : InputHeldSpecHandles)
-	{
-		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
-		{
-			if (AbilitySpec->Ability && !AbilitySpec->IsActive())
-			{
-				const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-				if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::WhileInputActive)
-				{
-					AbilitiesToActivate.Add(AbilitySpec->Handle);
-				}
-			}
-		}
-	}
-	
-	// Pressed
-	for (const FGameplayAbilitySpecHandle& SpecHandle : InputPressedSpecHandles)
-	{
-		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
-		{
-			if (AbilitySpec->Ability)
-			{
-				AbilitySpec->InputPressed = true;
-				
-				if (AbilitySpec->IsActive())
-				{
-					ASC->AbilitySpecInputPressed(*AbilitySpec);
-				}
-				else
-				{
-					const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered) // 입력 타입 필터링 조건 추가해야함
-					{
-						AbilitiesToActivate.Add(AbilitySpec->Handle);
-					}
-				}
-			}
-		}
-	}
-	
-	// 어빌리티 실행
-	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : AbilitiesToActivate)
-	{
-		ASC->TryActivateAbility(AbilitySpecHandle);
-	}
-	
-	// Released
-	for (const FGameplayAbilitySpecHandle& SpecHandle : InputReleasedSpecHandles)
-	{
-		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
-		{
-			if (AbilitySpec->Ability)
-			{
-				AbilitySpec->InputPressed = false;
-
-				if (AbilitySpec->IsActive())
-				{
-					ASC->AbilitySpecInputReleased(*AbilitySpec);
-				}
-			}
-		}
-	}
-	
-	InputPressedSpecHandles.Reset();
-	InputReleasedSpecHandles.Reset();
-}
-
