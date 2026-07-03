@@ -4,37 +4,35 @@
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 #include "Character/HACF_HeroComponent.h"
 #include "Components/ActorTestSpawner.h"
-#include "Components/InputTestActions.h"
 #include "Components/MapTestSpawner.h"
-#include "NativeGameplayTags.h"
 #include "Abilities/TestGameplayAbility.h"
+#include "Core/HACF_CombatComponent.h"
 
 namespace HyperActionCombatFrameworkTests
 {
 	// 1. 테스트 전용 Mock(Test Subclass) 컴포넌트
 	// Protected 멤버들을 단위 테스트에서 접근할 수 있도록 using 선언으로 Public 개방합니다.
-	class UHACF_HeroComponent_Accessor : public UHACF_HeroComponent
+	class UHACF_CombatComponent_Accessor : public UHACF_CombatComponent
 	{
 	public:
 	
 		// Protected 메서드 개방
-		using UHACF_HeroComponent::BeginPlay;
-		using UHACF_HeroComponent::InitializePlayerInput;
-		using UHACF_HeroComponent::AbilityInputTagPressed;
-		using UHACF_HeroComponent::AbilityInputTagReleased;
-		using UHACF_HeroComponent::ProcessAbilityInput;
+		using UHACF_CombatComponent::BeginPlay;
+		using UHACF_CombatComponent::AbilityInputTagPressed;
+		using UHACF_CombatComponent::AbilityInputTagReleased;
+		using UHACF_CombatComponent::ProcessAbilityInput;
 		
 		// Protected 변수 개방
-		using UHACF_HeroComponent::InputPressedSpecHandles;
-		using UHACF_HeroComponent::InputHeldSpecHandles;
-		using UHACF_HeroComponent::InputReleasedSpecHandles;
+		using UHACF_CombatComponent::InputPressedSpecHandles;
+		using UHACF_CombatComponent::InputHeldSpecHandles;
+		using UHACF_CombatComponent::InputReleasedSpecHandles;
 	};		
 	
-	TEST_CLASS(HACF_EnhancedInputTest, "HyperActionCombat.Tests.EnhancedInput")
+	TEST_CLASS(HACF_CombatInputQueueTest, "HyperActionCombat.Tests.CombatComponent.InputQueue")
 	{
 		FActorTestSpawner Spawner;
 		APawn* DummyPawn;
-		UHACF_HeroComponent_Accessor* HeroComponent;
+		UHACF_CombatComponent_Accessor* CombatComponent;
 		UAbilitySystemComponent* ASC;
 		
 		// 매 테스트 시작 전 실행되는 Setup 로직
@@ -50,15 +48,16 @@ namespace HyperActionCombatFrameworkTests
 			ASC->RegisterComponent();
 			DummyPawn->AddInstanceComponent(ASC);
 			
-			// 3) 테스트용 HeroComponent 부착
-			UHACF_HeroComponent* RawHeroComponent = NewObject<UHACF_HeroComponent>(DummyPawn, TEXT("HeroComponent"));
-			RawHeroComponent->RegisterComponent();
-			DummyPawn->AddInstanceComponent(RawHeroComponent);
+			// 3) 테스트용 CombatComponent 부착
+			UHACF_CombatComponent* RawCombatComponent = NewObject<UHACF_CombatComponent>(DummyPawn, TEXT("CombatComponent"));
+			RawCombatComponent->RegisterComponent();
+			
+			DummyPawn->AddInstanceComponent(RawCombatComponent);
 		
-			HeroComponent = static_cast<UHACF_HeroComponent_Accessor*>(RawHeroComponent);
+			CombatComponent = static_cast<UHACF_CombatComponent_Accessor*>(RawCombatComponent);
 			
 			// BeginPlay 모사: ASC를 Owner로부터 정상적으로 캐싱하도록 함
-			HeroComponent->BeginPlay();
+			CombatComponent->InitializeWithASC(ASC);
 		}
 				
 		// 테스트 시나리오 1: Pressed 입력 처리
@@ -74,12 +73,12 @@ namespace HyperActionCombatFrameworkTests
 			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
 			
 			// Act (실행)
-			HeroComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->AbilityInputTagPressed(TestTag);
 			
 			// Assert (검증)
 			// Pressed 큐와 Held 큐에 어빌리티 핸들이 제대로 추가되었는지 확인합니다.
-			ASSERT_THAT(IsTrue(HeroComponent->InputPressedSpecHandles.Contains(GivenHandle)));
-			ASSERT_THAT(IsTrue(HeroComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
 		}
 		
 		// 테스트 시나리오 2: ProcessAbilityInput을 통한 어빌리티 활성화
@@ -94,10 +93,10 @@ namespace HyperActionCombatFrameworkTests
 			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
 			
 			// 인위적으로 Pressed 상태 큐잉
-			HeroComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->AbilityInputTagPressed(TestTag);
 			
 			// Act (실행)
-			HeroComponent->ProcessAbilityInput(0.1f, false);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 			
 			// Assert (검증)
 			// 1) 어빌리티가 큐를 타고 성공적으로 활성화(Active) 되었는가?
@@ -108,10 +107,10 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
 			
 			// 2) 처리가 끝난 후 Pressed 큐는 비워졌는가?
-			ASSERT_THAT(IsTrue(HeroComponent->InputPressedSpecHandles.IsEmpty()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.IsEmpty()));
 		
 			// 3) 키를 떼진 않았으므로 Held 큐에는 남아있어야 함
-			ASSERT_THAT(IsTrue(HeroComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
 		}
 		
 		// 테스트 시나리오 3: Released 입력 처리 및 버퍼 이동
@@ -126,15 +125,15 @@ namespace HyperActionCombatFrameworkTests
 			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
 			
 			// 눌렀다가 떼는 상황 모사
-			HeroComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->AbilityInputTagPressed(TestTag);
 		
 			// Act
-			HeroComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->AbilityInputTagReleased(TestTag);
 			
 			// Assert
 			// Held 큐에서는 제거되었고, Released 큐에 무사히 안착했는지 검증
-			ASSERT_THAT(IsFalse(HeroComponent->InputHeldSpecHandles.Contains(GivenHandle)));
-			ASSERT_THAT(IsTrue(HeroComponent->InputReleasedSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsFalse(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsTrue(CombatComponent->InputReleasedSpecHandles.Contains(GivenHandle)));
 		}
 		
 		// 테스트 시나리오 4: ProcessAbilityInput이 Released 큐를 비우고 Input 해제 처리를 하는가?
@@ -147,13 +146,13 @@ namespace HyperActionCombatFrameworkTests
 			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
 			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
 			
-			HeroComponent->AbilityInputTagPressed(TestTag);
-			HeroComponent->ProcessAbilityInput(0.1f, false); // 눌러서 일단 어빌리티 Active 상태로 만듦
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false); // 눌러서 일단 어빌리티 Active 상태로 만듦
 		
-			HeroComponent->AbilityInputTagReleased(TestTag); // 떼기
+			CombatComponent->AbilityInputTagReleased(TestTag); // 떼기
 			
 			// Act (실행: Released 큐를 소화함)
-			HeroComponent->ProcessAbilityInput(0.1f, false);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 			
 			// Assert
 			FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
@@ -163,7 +162,7 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsFalse(FoundSpec->InputPressed));
 		
 			// 처리가 끝난 후 Released 큐는 비워졌는가?
-			ASSERT_THAT(IsTrue(HeroComponent->InputReleasedSpecHandles.IsEmpty()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputReleasedSpecHandles.IsEmpty()));
 		}
 	};
 }
