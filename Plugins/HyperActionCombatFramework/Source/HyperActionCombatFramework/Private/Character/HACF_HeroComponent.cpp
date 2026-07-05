@@ -3,11 +3,9 @@
 
 #include "Character/HACF_HeroComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
-#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 #include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
@@ -39,7 +37,10 @@ void UHACF_HeroComponent::BeginPlay()
 	
 	if(APawn* Pawn = Cast<APawn>(GetOwner()))
 	{
-		InitializePlayerInput(Pawn->InputComponent);
+		if (Pawn->InputComponent)
+		{
+			InitializePlayerInput(Pawn->InputComponent);
+		}
 	}
 }
 
