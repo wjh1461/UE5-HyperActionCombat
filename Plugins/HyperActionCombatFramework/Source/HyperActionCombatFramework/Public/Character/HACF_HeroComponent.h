@@ -15,7 +15,7 @@ struct FInputMappingContextAndPriority;
 /**
  * 
  */
-UCLASS(ClassGroup=(HACF), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
 class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -33,7 +33,6 @@ protected:
 	virtual void BeginPlay() override;
 	
 	// 바인딩 처리
-	// =========================================================
 	void InitializePlayerInput(UInputComponent* PlayerInputComponent);
 	
 	// 바인딩 메서드
@@ -43,11 +42,11 @@ protected:
 	void Input_AbilityInputTagPressed(FGameplayTag InputTag);
 	void Input_AbilityInputTagReleased(FGameplayTag InputTag);
 	
-private:
+protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TArray<FInputMappingContextAndPriority> DefaultMappings;
 	
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UHACF_InputConfig> InputConfig;
 	
 	UPROPERTY()

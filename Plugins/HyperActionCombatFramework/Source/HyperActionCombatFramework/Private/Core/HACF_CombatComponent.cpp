@@ -34,6 +34,11 @@ void UHACF_CombatComponent::InitializeWithASC(UAbilitySystemComponent* InASC)
 
 void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 {
+	if (ASC == nullptr)
+	{
+		return;
+	}
+	
 	if (InputTag.IsValid())
 	{
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
@@ -50,6 +55,11 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 
 void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag)
 {
+	if (ASC == nullptr)
+	{
+		return;
+	}
+	
 	if (InputTag.IsValid())
 	{
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())

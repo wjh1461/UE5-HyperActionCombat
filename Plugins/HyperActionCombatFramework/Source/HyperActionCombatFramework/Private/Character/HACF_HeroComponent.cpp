@@ -3,11 +3,9 @@
 
 #include "Character/HACF_HeroComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
-#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 #include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
@@ -26,9 +24,7 @@ void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 										FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// 임시
-	//ProcessAbilityInput(DeltaTime, false);
+	
 }
 
 
@@ -38,6 +34,14 @@ void UHACF_HeroComponent::BeginPlay()
 	Super::BeginPlay();
 	
 	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+	
+	if(APawn* Pawn = Cast<APawn>(GetOwner()))
+	{
+		if (Pawn->InputComponent)
+		{
+			InitializePlayerInput(Pawn->InputComponent);
+		}
+	}
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
