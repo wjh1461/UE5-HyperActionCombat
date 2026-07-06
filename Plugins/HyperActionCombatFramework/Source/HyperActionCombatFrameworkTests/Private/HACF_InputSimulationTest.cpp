@@ -43,16 +43,16 @@ namespace HyperActionCombatFrameworkTests
 		using UHACF_HeroComponent::InputConfig;
 	};
 	
-	class UHACF_CombatComponent_Accessor : public UHACF_CombatComponent
-	{
-	public:
-		using UHACF_CombatComponent::InputPressedSpecHandles;
-		using UHACF_CombatComponent::InputHeldSpecHandles;
-		using UHACF_CombatComponent::InputReleasedSpecHandles;
-	};
-	
 	TEST_CLASS(HACF_InputSimulationTest, "HyperActionCombat.Tests.InputSimulation")
 	{
+		class UHACF_CombatComponent_Accessor : public UHACF_CombatComponent
+		{
+		public:
+			using UHACF_CombatComponent::InputPressedSpecHandles;
+			using UHACF_CombatComponent::InputHeldSpecHandles;
+			using UHACF_CombatComponent::InputReleasedSpecHandles;
+		};
+		
 		TUniquePtr<FMapTestSpawner> Spawner;
 		UHACF_InputConfig* InputConfig{nullptr};
 		APawn* TestPawn{nullptr};
