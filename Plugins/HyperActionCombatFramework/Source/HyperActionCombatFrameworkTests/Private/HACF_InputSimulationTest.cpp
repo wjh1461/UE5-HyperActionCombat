@@ -2,6 +2,7 @@
 #include "CQTest.h"
 #include "Abilities/TestGameplayAbility.h"
 #include "Character/HACF_HeroComponent.h"
+#include "Character/HACF_PawnData.h"
 #include "Components/MapTestSpawner.h"
 #include "Input/HACF_InputConfig.h"
 #include "Components/InputTestActions.h"
@@ -40,7 +41,7 @@ namespace HyperActionCombatFrameworkTests
 		using UHACF_HeroComponent::InitializePlayerInput;
 		
 		using UHACF_HeroComponent::CombatComponent;
-		using UHACF_HeroComponent::InputConfig;
+		using UHACF_HeroComponent::PawnData;
 	};
 	
 	TEST_CLASS(HACF_InputSimulationTest, "HyperActionCombat.Tests.InputSimulation")
@@ -60,6 +61,7 @@ namespace HyperActionCombatFrameworkTests
 		UAbilitySystemComponent* AbilitySystemComponent;
 		UHACF_CombatComponent_Accessor* CombatComponent{nullptr};
 		UHACF_HeroComponent_Accessor* HeroComponent{nullptr};
+		UHACF_PawnData* PawnData;
 		
 		TUniquePtr<FHACFPawnTestActions> PawnActions;
 		
@@ -70,9 +72,9 @@ namespace HyperActionCombatFrameworkTests
 			Spawner = FMapTestSpawner::CreateFromTempLevel(TestCommandBuilder);
 			Spawner->AddWaitUntilLoadedCommand(TestRunner);
 
-			InputConfig = Cast<UHACF_InputConfig>(StaticLoadObject(UHACF_InputConfig::StaticClass(), nullptr, 
-				TEXT("/Script/HyperActionCombatFramework.HACF_InputConfig'/Game/Input/InputData_CombatHero.InputData_CombatHero'")
-			));
+			PawnData = Cast<UHACF_PawnData>(StaticLoadObject(UHACF_PawnData::StaticClass(), nullptr, 
+				TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Characters/CombatPawnData.CombatPawnData'")));
+			InputConfig = PawnData->InputConfig;
 		}
 		
 		AFTER_EACH()
@@ -103,7 +105,7 @@ namespace HyperActionCombatFrameworkTests
 					HeroComponent->RegisterComponent();
 					
 					HeroComponent->CombatComponent = CombatComponent;
-					HeroComponent->InputConfig = InputConfig;
+					HeroComponent->PawnData = PawnData;
 					HeroComponent->InitializePlayerInput(TestPawn->GetController()->InputComponent);
 				});
 		}

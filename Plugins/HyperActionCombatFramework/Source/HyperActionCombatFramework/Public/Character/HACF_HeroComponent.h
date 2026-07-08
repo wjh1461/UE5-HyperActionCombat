@@ -3,11 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EnhancedInputComponent.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
 #include "Components/ActorComponent.h"
+#include "Input/HACF_InputConfig.h"
 #include "HACF_HeroComponent.generated.h"
 
+class UInputAction;
+class UHACF_PawnData;
 class UHACF_CombatComponent;
 class UHACF_InputConfig;
 struct FInputMappingContextAndPriority;
@@ -42,13 +46,27 @@ protected:
 	void Input_AbilityInputTagPressed(FGameplayTag InputTag);
 	void Input_AbilityInputTagReleased(FGameplayTag InputTag);
 	
+	template<class UserClass, typename FuncType>
+	void BindNativeAction(UEnhancedInputComponent* EnhancedIC, const UHACF_InputConfig* InputConfig, 
+		const FGameplayTag& InputTag, ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound);
+	
 protected:
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TArray<FInputMappingContextAndPriority> DefaultMappings;
+	UPROPERTY(EditAnywhere, Category="HACF|Pawn")
+	TObjectPtr<const UHACF_PawnData> PawnData;
 	
-	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UHACF_InputConfig> InputConfig;
-	
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TObjectPtr<UHACF_CombatComponent> CombatComponent;
 };
+
+template<class UserClass, typename FuncType>
+void UHACF_HeroComponent::BindNativeAction(UEnhancedInputComponent* EnhancedIC, const UHACF_InputConfig* InputConfig, 
+	const FGameplayTag& InputTag, ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound)
+{
+	check(EnhancedIC);
+	
+	if (const UInputAction* Action = InputConfig->FindNativeInputActionForTag(InputTag, bLogIfNotFound))
+	{
+		EnhancedIC->BindAction(Action, TriggerEvent, Object, Func);
+	}
+}
+
