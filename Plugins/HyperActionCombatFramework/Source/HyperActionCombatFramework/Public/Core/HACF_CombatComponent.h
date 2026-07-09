@@ -32,6 +32,8 @@ public:
 	// 입력 처리
 	// PlayerController의 PostProcessInput에서 호출
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
+	
+	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 
 protected:
 	// Called when the game starts

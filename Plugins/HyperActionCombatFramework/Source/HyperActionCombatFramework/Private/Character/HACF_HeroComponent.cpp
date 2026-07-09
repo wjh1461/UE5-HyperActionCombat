@@ -3,9 +3,12 @@
 
 #include "Character/HACF_HeroComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "AbilitySystem/HACF_AbilitySet.h"
+#include "Character/HACF_PawnData.h"
 #include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
@@ -33,7 +36,20 @@ void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	//TODO: 추후 ModularGameplay 플러그인을 사용하여 초기화 부분 수정
 	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+	CombatComponent->InitializeWithASC(GetOwner()->FindComponentByClass<UAbilitySystemComponent>());
+	
+	if (PawnData)
+	{
+		for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
+		{
+			if (AbilitySet)
+			{
+				AbilitySet->GiveToAbilitySystem(CombatComponent->GetAbilitySystemComponent(), nullptr);
+			}
+		}
+	}
 	
 	if(APawn* Pawn = Cast<APawn>(GetOwner()))
 	{
@@ -63,35 +79,36 @@ void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComp
 	
 	Subsystem->ClearAllMappings();
 
-	if (InputConfig)
+	if (PawnData)
 	{
-		check(InputConfig);
-
-		// InputMappingContext 추가
-		for (const FInputMappingContextAndPriority& Mapping : DefaultMappings)
+		if (const UHACF_InputConfig* InputConfig = PawnData->InputConfig)
 		{
-			if (UInputMappingContext* IMC = Mapping.InputMapping.LoadSynchronous())
+			// InputMappingContext 추가
+			for (const FInputMappingContextAndPriority& Mapping : PawnData->DefaultInputMappings)
 			{
-				FModifyContextOptions Options = {};
-				Options.bIgnoreAllPressedKeysUntilRelease = false;
+				if (UInputMappingContext* IMC = Mapping.InputMapping.LoadSynchronous())
+				{
+					FModifyContextOptions Options = {};
+					Options.bIgnoreAllPressedKeysUntilRelease = false;
 				
-				Subsystem->AddMappingContext(IMC, Mapping.Priority, Options);	
+					Subsystem->AddMappingContext(IMC, Mapping.Priority, Options);	
+				}
 			}
-		}
 
-		// 어빌리티 액션 바인딩
-		for (const FHACF_InputAction& Action : InputConfig->AbilityInputActions)
-		{
-			if (Action.InputAction && Action.InputTag.IsValid())
+			// 어빌리티 액션 바인딩
+			for (const FHACF_InputAction& Action : InputConfig->AbilityInputActions)
 			{
-				EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Triggered, this, &ThisClass::Input_AbilityInputTagPressed, Action.InputTag);
-				EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Completed, this, &ThisClass::Input_AbilityInputTagReleased, Action.InputTag);
+				if (Action.InputAction && Action.InputTag.IsValid())
+				{
+					EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Triggered, this, &ThisClass::Input_AbilityInputTagPressed, Action.InputTag);
+					EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Completed, this, &ThisClass::Input_AbilityInputTagReleased, Action.InputTag);
+				}
 			}
+			
+			// 일반 액션 바인딩
+			// BindNativeAction(EnhancedInputComponent, InputConfig, FGameplayTag(), ETriggerEvent::Triggered,this, &ThisClass::Input_Move, false);
+			// BindNativeAction(EnhancedInputComponent, InputConfig, FGameplayTag(), ETriggerEvent::Triggered,this, &ThisClass::Input_Look, false);
 		}
-		
-		// 일반 액션 바인딩
-		//EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
-		//EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Look);
 	}
 }
 
@@ -118,3 +135,5 @@ void UHACF_HeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 	
 	CombatComponent->AbilityInputTagReleased(InputTag);
 }
+
+
