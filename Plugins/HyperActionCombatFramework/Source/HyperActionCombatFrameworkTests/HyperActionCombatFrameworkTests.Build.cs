@@ -45,7 +45,9 @@ public class HyperActionCombatFrameworkTests : ModuleRules
 				"SlateCore", 
 				
 				"CQTestEnhancedInput",
-				"EnhancedInput"
+				"EnhancedInput",
+				
+				"ModularGameplay"
 			}
 			);
 		

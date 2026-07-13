@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
+#include "Components/GameFrameworkInitStateInterface.h"
+#include "Components/PawnComponent.h"
 #include "HACF_CombatComponent.generated.h"
 
 class UAbilitySystemComponent;
@@ -14,7 +16,7 @@ struct FGameplayAbilitySpecHandle;
  *
  */
 UCLASS( ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent) )
-class HYPERACTIONCOMBATFRAMEWORK_API UHACF_CombatComponent : public UActorComponent
+class HYPERACTIONCOMBATFRAMEWORK_API UHACF_CombatComponent : public UPawnComponent, IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
@@ -23,6 +25,13 @@ public:
 	UHACF_CombatComponent();
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
+	//~Begin IGameFrameworkInitStateInterface
+	virtual FName GetFeatureName() const override;
+	virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState) override;
+	virtual void CheckDefaultInitialization() override;
+	//~End
 	
 	void InitializeWithASC(UAbilitySystemComponent* InASC);
 	
