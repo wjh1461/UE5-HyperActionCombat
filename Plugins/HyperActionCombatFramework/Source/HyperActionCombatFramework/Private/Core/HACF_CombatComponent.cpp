@@ -7,6 +7,8 @@
 #include "GameplayAbilitySpec.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 
+const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
+
 // Sets default values for this component's properties
 UHACF_CombatComponent::UHACF_CombatComponent()
 {
@@ -23,6 +25,33 @@ void UHACF_CombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// ...
+}
+
+void UHACF_CombatComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	if (!IsTemplate())
+	{
+		RegisterInitStateFeature();
+	}
+}
+
+// Called when the game starts
+void UHACF_CombatComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	BindOnActorInitStateChanged(NAME_ActorFeatureName, FGameplayTag(), false);
+	
+	CheckDefaultInitialization();
+}
+
+void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnregisterInitStateFeature();
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void UHACF_CombatComponent::InitializeWithASC(UAbilitySystemComponent* InASC)
@@ -146,14 +175,5 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
-}
-
-// Called when the game starts
-void UHACF_CombatComponent::BeginPlay()
-{
-	Super::BeginPlay();
-
-	// ...
-	
 }
 

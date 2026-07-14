@@ -7,6 +7,8 @@
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
 #include "Components/ActorComponent.h"
+#include "Components/GameFrameworkInitStateInterface.h"
+#include "Components/PawnComponent.h"
 #include "Input/HACF_InputConfig.h"
 #include "HACF_HeroComponent.generated.h"
 
@@ -20,7 +22,7 @@ struct FInputMappingContextAndPriority;
  * 
  */
 UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
-class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UActorComponent
+class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UPawnComponent, IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
@@ -31,6 +33,16 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 							   FActorComponentTickFunction* ThisTickFunction) override;
+	
+	//~Begin IGameFrameworkInitStateInterface
+	static const FName NAME_ActorFeatureName;
+	
+	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
+	virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState) override;
+	virtual void CheckDefaultInitialization() override;
+	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
+	//~End
 
 protected:
 	// Called when the game starts

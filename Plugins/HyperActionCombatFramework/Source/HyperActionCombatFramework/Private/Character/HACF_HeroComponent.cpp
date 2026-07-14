@@ -12,6 +12,7 @@
 #include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
+const FName UHACF_HeroComponent::NAME_ActorFeatureName("HACF.Hero");  
 
 // Sets default values for this component's properties
 UHACF_HeroComponent::UHACF_HeroComponent()

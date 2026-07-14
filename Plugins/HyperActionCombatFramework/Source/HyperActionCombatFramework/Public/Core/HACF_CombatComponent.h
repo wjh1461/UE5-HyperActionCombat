@@ -26,11 +26,16 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
+	virtual void OnRegister() override;
+	
 	//~Begin IGameFrameworkInitStateInterface
-	virtual FName GetFeatureName() const override;
+	static const FName NAME_ActorFeatureName;
+	
+	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
 	virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
 	virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState) override;
 	virtual void CheckDefaultInitialization() override;
+	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	//~End
 	
 	void InitializeWithASC(UAbilitySystemComponent* InASC);
@@ -47,6 +52,7 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	// 입력 처리용 버퍼
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
