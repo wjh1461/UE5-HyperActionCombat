@@ -2,9 +2,9 @@
 
 
 #include "Core/HACF_CombatComponent.h"
-
 #include "AbilitySystemComponent.h"
 #include "GameplayAbilitySpec.h"
+#include "HACF_GameplayTags.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
@@ -52,6 +52,62 @@ void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	UnregisterInitStateFeature();
 	
 	Super::EndPlay(EndPlayReason);
+}
+
+bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState) const
+{
+	const APawn* Pawn = GetPawn<APawn>();
+	
+	if (!CurrentState.IsValid() && 
+		DesiredState == HACF_GameplayTags::InitState_Spawned)
+	{
+		return Pawn != nullptr;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_Spawned && 
+		DesiredState == HACF_GameplayTags::InitState_DataAvailable)
+	{
+		return ASC != nullptr;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		return true;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataInitialized &&
+		DesiredState == HACF_GameplayTags::InitState_GameplayReady)
+	{
+		return true;
+	}
+	
+	return false;
+}
+
+void UHACF_CombatComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState)
+{
+	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
+}
+
+void UHACF_CombatComponent::CheckDefaultInitialization()
+{
+	static const TArray<FGameplayTag> StateChain =
+	{
+		HACF_GameplayTags::InitState_Spawned,
+		HACF_GameplayTags::InitState_DataAvailable,
+		HACF_GameplayTags::InitState_DataInitialized,
+		HACF_GameplayTags::InitState_GameplayReady
+	};
+
+	ContinueInitStateChain(StateChain);
+}
+
+void UHACF_CombatComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
+{
+	CheckDefaultInitialization();
 }
 
 void UHACF_CombatComponent::InitializeWithASC(UAbilitySystemComponent* InASC)

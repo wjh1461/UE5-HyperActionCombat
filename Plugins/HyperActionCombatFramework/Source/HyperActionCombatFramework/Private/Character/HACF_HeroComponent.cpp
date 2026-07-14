@@ -12,7 +12,29 @@
 #include "Core/HACF_CombatComponent.h"
 #include "Input/HACF_InputConfig.h"
 
-const FName UHACF_HeroComponent::NAME_ActorFeatureName("HACF.Hero");  
+const FName UHACF_HeroComponent::NAME_ActorFeatureName("HACF.Hero");
+
+bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState) const
+{
+	return IGameFrameworkInitStateInterface::CanChangeInitState(Manager, CurrentState, DesiredState);
+}
+
+void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState)
+{
+	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
+}
+
+void UHACF_HeroComponent::CheckDefaultInitialization()
+{
+	IGameFrameworkInitStateInterface::CheckDefaultInitialization();
+}
+
+void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
+{
+	IGameFrameworkInitStateInterface::OnActorInitStateChanged(Params);
+}
 
 // Sets default values for this component's properties
 UHACF_HeroComponent::UHACF_HeroComponent()
@@ -38,27 +60,27 @@ void UHACF_HeroComponent::BeginPlay()
 	Super::BeginPlay();
 	
 	//TODO: 추후 ModularGameplay 플러그인을 사용하여 초기화 부분 수정
-	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
-	CombatComponent->InitializeWithASC(GetOwner()->FindComponentByClass<UAbilitySystemComponent>());
-	
-	if (PawnData)
-	{
-		for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
-		{
-			if (AbilitySet)
-			{
-				AbilitySet->GiveToAbilitySystem(CombatComponent->GetAbilitySystemComponent(), nullptr);
-			}
-		}
-	}
-	
-	if(APawn* Pawn = Cast<APawn>(GetOwner()))
-	{
-		if (Pawn->InputComponent)
-		{
-			InitializePlayerInput(Pawn->InputComponent);
-		}
-	}
+	// CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+	// CombatComponent->InitializeWithASC(GetOwner()->FindComponentByClass<UAbilitySystemComponent>());
+	//
+	// if (PawnData)
+	// {
+	// 	for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
+	// 	{
+	// 		if (AbilitySet)
+	// 		{
+	// 			AbilitySet->GiveToAbilitySystem(CombatComponent->GetAbilitySystemComponent(), nullptr);
+	// 		}
+	// 	}
+	// }
+	//
+	// if(APawn* Pawn = Cast<APawn>(GetOwner()))
+	// {
+	// 	if (Pawn->InputComponent)
+	// 	{
+	// 		InitializePlayerInput(Pawn->InputComponent);
+	// 	}
+	// }
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
