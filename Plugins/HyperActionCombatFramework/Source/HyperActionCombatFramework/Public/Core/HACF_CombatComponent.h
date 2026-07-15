@@ -16,13 +16,13 @@ struct FGameplayAbilitySpecHandle;
  *
  */
 UCLASS( ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent) )
-class HYPERACTIONCOMBATFRAMEWORK_API UHACF_CombatComponent : public UPawnComponent, IGameFrameworkInitStateInterface
+class HYPERACTIONCOMBATFRAMEWORK_API UHACF_CombatComponent : public UPawnComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
 public:	
 	// Sets default values for this component's properties
-	UHACF_CombatComponent();
+	UHACF_CombatComponent(const FObjectInitializer& ObjectInitializer);
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
@@ -38,7 +38,8 @@ public:
 	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	//~End
 	
-	void InitializeWithASC(UAbilitySystemComponent* InASC);
+	void InitializeWithASC(UAbilitySystemComponent* InASC, AActor* InOwnerActor);
+	void UninitializeFromASC();
 	
 	void AbilityInputTagPressed(const FGameplayTag& InputTag);
 	void AbilityInputTagReleased(const FGameplayTag& InputTag);
@@ -53,6 +54,8 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
+	virtual bool ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const;
 	
 	// 입력 처리용 버퍼
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;

@@ -22,13 +22,13 @@ struct FInputMappingContextAndPriority;
  * 
  */
 UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
-class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UPawnComponent, IGameFrameworkInitStateInterface
+class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UPawnComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	UHACF_HeroComponent();
+	UHACF_HeroComponent(const FObjectInitializer& ObjectInitializer);
 	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,

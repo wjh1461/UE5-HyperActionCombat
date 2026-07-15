@@ -7,40 +7,17 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "AbilitySystem/HACF_AbilitySet.h"
 #include "Character/HACF_PawnData.h"
 #include "Core/HACF_CombatComponent.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/PlayerController.h"
 #include "Input/HACF_InputConfig.h"
 
 const FName UHACF_HeroComponent::NAME_ActorFeatureName("HACF.Hero");
 
-bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState) const
+UHACF_HeroComponent::UHACF_HeroComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	return IGameFrameworkInitStateInterface::CanChangeInitState(Manager, CurrentState, DesiredState);
-}
-
-void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState)
-{
-	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
-}
-
-void UHACF_HeroComponent::CheckDefaultInitialization()
-{
-	IGameFrameworkInitStateInterface::CheckDefaultInitialization();
-}
-
-void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
-{
-	IGameFrameworkInitStateInterface::OnActorInitStateChanged(Params);
-}
-
-// Sets default values for this component's properties
-UHACF_HeroComponent::UHACF_HeroComponent()
-{
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 	
 }
@@ -81,6 +58,28 @@ void UHACF_HeroComponent::BeginPlay()
 	// 		InitializePlayerInput(Pawn->InputComponent);
 	// 	}
 	// }
+}
+
+bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState) const
+{
+	return IGameFrameworkInitStateInterface::CanChangeInitState(Manager, CurrentState, DesiredState);
+}
+
+void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState)
+{
+	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
+}
+
+void UHACF_HeroComponent::CheckDefaultInitialization()
+{
+	IGameFrameworkInitStateInterface::CheckDefaultInitialization();
+}
+
+void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
+{
+	IGameFrameworkInitStateInterface::OnActorInitStateChanged(Params);
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)

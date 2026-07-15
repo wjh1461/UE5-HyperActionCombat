@@ -3,20 +3,18 @@
 
 #include "Core/HACF_CombatComponent.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "GameplayAbilitySpec.h"
 #include "HACF_GameplayTags.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "GameFramework/PlayerState.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
 
-// Sets default values for this component's properties
-UHACF_CombatComponent::UHACF_CombatComponent()
+UHACF_CombatComponent::UHACF_CombatComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
 }
 
 // Called every frame
@@ -50,12 +48,36 @@ void UHACF_CombatComponent::BeginPlay()
 void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnregisterInitStateFeature();
+	UninitializeFromASC();
 	
 	Super::EndPlay(EndPlayReason);
 }
 
+bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const
+{
+	OutASC = nullptr;
+	OutOwnerActor = nullptr;
+
+	APlayerState* PlayerState = GetPlayerState<APlayerState>();
+	if (!PlayerState)
+	{
+		return false;
+	}
+	
+	const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(PlayerState);
+	if (!AbilitySystemProvider)
+	{
+		return false;
+	}
+	
+	OutASC = AbilitySystemProvider->GetAbilitySystemComponent();
+	OutOwnerActor = PlayerState;
+	
+	return IsValid(OutASC);
+}
+
 bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState) const
+                                               FGameplayTag DesiredState) const
 {
 	const APawn* Pawn = GetPawn<APawn>();
 	
@@ -68,7 +90,10 @@ bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 	if (CurrentState == HACF_GameplayTags::InitState_Spawned && 
 		DesiredState == HACF_GameplayTags::InitState_DataAvailable)
 	{
-		return ASC != nullptr;
+		UAbilitySystemComponent* ResolvedASC = nullptr;
+		AActor* ResolvedOwner = nullptr;
+
+		return Pawn && ResolveAbilitySystem(ResolvedASC, ResolvedOwner);
 	}
 
 	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
@@ -80,7 +105,7 @@ bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 	if (CurrentState == HACF_GameplayTags::InitState_DataInitialized &&
 		DesiredState == HACF_GameplayTags::InitState_GameplayReady)
 	{
-		return true;
+		return ASC && ASC->GetOwnerActor() != nullptr && ASC->GetAvatarActor() == Pawn;
 	}
 	
 	return false;
@@ -89,7 +114,21 @@ bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 void UHACF_CombatComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
 	FGameplayTag DesiredState)
 {
-	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		UAbilitySystemComponent* ResolvedASC = nullptr;
+		AActor* ResolvedOwner = nullptr;
+
+		const bool bResolved = ResolveAbilitySystem(ResolvedASC, ResolvedOwner);
+
+		if (!ensureMsgf(bResolved, TEXT("CombatComponent could not resolve its PlayerState ASC.")))
+		{
+			return;
+		}
+
+		InitializeWithASC(ResolvedASC, ResolvedOwner);
+	}
 }
 
 void UHACF_CombatComponent::CheckDefaultInitialization()
@@ -110,11 +149,60 @@ void UHACF_CombatComponent::OnActorInitStateChanged(const FActorInitStateChanged
 	CheckDefaultInitialization();
 }
 
-void UHACF_CombatComponent::InitializeWithASC(UAbilitySystemComponent* InASC)
+void UHACF_CombatComponent::InitializeWithASC(UAbilitySystemComponent* InASC, AActor* InOwnerActor)
 {
-	check(InASC);
-	
+	APawn* Pawn = GetPawn<APawn>();
+	if (!ensure(Pawn && InASC && InOwnerActor))
+	{
+		return;
+	}
+
+	if (ASC && ASC != InASC)
+	{
+		UninitializeFromASC();
+	}
+
 	ASC = InASC;
+	
+	if (ASC->GetOwnerActor() != InOwnerActor || ASC->GetAvatarActor() != Pawn)
+	{
+		// PlayerState, 현재 Pawn
+		ASC->InitAbilityActorInfo(InOwnerActor, Pawn);        
+	}
+}
+
+void UHACF_CombatComponent::UninitializeFromASC()
+{
+	if (!ASC)
+	{
+		return;
+	}
+	
+	if (ASC->GetAvatarActor() == GetOwner())
+	{
+		FGameplayTagContainer AbilityTypesToIgnore;
+		
+		// 프로젝트 정책에 따라 취소 대상 Ability를 필터링할 수 있다.
+		ASC->CancelAbilities(nullptr, &AbilityTypesToIgnore);
+		
+		InputPressedSpecHandles.Reset();
+		InputHeldSpecHandles.Reset();
+		InputReleasedSpecHandles.Reset();
+		
+		ASC->RemoveAllGameplayCues();
+
+		// PlayerState OwnerActor는 유지하고 Avatar만 해제한다.
+		if (ASC->GetOwnerActor() != nullptr)
+		{
+			ASC->SetAvatarActor(nullptr);
+		}
+		else
+		{
+			ASC->ClearActorInfo();
+		}
+	}
+	
+	ASC = nullptr;
 }
 
 void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
