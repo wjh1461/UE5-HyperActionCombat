@@ -47,6 +47,7 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	// 바인딩 처리
 	void InitializePlayerInput(UInputComponent* PlayerInputComponent);

@@ -2,12 +2,12 @@
 
 
 #include "Character/HACF_HeroComponent.h"
-#include "AbilitySystemBlueprintLibrary.h"
-#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "HACF_GameplayTags.h"
 #include "InputMappingContext.h"
 #include "Character/HACF_PawnData.h"
+#include "Components/GameFrameworkComponentManager.h"
 #include "Core/HACF_CombatComponent.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
@@ -27,59 +27,100 @@ void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 										FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
 }
-
 
 // Called when the game starts
 void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	//TODO: 추후 ModularGameplay 플러그인을 사용하여 초기화 부분 수정
-	// CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
-	// CombatComponent->InitializeWithASC(GetOwner()->FindComponentByClass<UAbilitySystemComponent>());
-	//
-	// if (PawnData)
-	// {
-	// 	for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
-	// 	{
-	// 		if (AbilitySet)
-	// 		{
-	// 			AbilitySet->GiveToAbilitySystem(CombatComponent->GetAbilitySystemComponent(), nullptr);
-	// 		}
-	// 	}
-	// }
-	//
-	// if(APawn* Pawn = Cast<APawn>(GetOwner()))
-	// {
-	// 	if (Pawn->InputComponent)
-	// 	{
-	// 		InitializePlayerInput(Pawn->InputComponent);
-	// 	}
-	// }
+	BindOnActorInitStateChanged(UHACF_CombatComponent::NAME_ActorFeatureName, FGameplayTag(), false);
+	
+	ensure(TryToChangeInitState(HACF_GameplayTags::InitState_Spawned));
+	
+	CheckDefaultInitialization();
+}
+
+void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnregisterInitStateFeature();
+	CombatComponent = nullptr;
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState) const
+                                             FGameplayTag DesiredState) const
 {
-	return IGameFrameworkInitStateInterface::CanChangeInitState(Manager, CurrentState, DesiredState);
+	const APawn* Pawn = GetPawn<APawn>();
+
+	if (!CurrentState.IsValid() &&
+		DesiredState == HACF_GameplayTags::InitState_Spawned)
+	{
+		return Pawn != nullptr;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_Spawned &&
+		DesiredState == HACF_GameplayTags::InitState_DataAvailable)
+	{
+		const UHACF_CombatComponent* FoundCombat = Pawn ? Pawn->FindComponentByClass<UHACF_CombatComponent>() : nullptr;
+		return FoundCombat != nullptr && PawnData != nullptr;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		return Manager->HasFeatureReachedInitState(GetOwner(), UHACF_CombatComponent::NAME_ActorFeatureName,
+			HACF_GameplayTags::InitState_DataInitialized);
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataInitialized &&
+		DesiredState == HACF_GameplayTags::InitState_GameplayReady)
+	{
+		return Manager->HasFeatureReachedInitState(GetOwner(), UHACF_CombatComponent::NAME_ActorFeatureName, 
+			HACF_GameplayTags::InitState_GameplayReady);
+	}
+
+	return false;
 }
 
 void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
 	FGameplayTag DesiredState)
 {
-	IGameFrameworkInitStateInterface::HandleChangeInitState(Manager, CurrentState, DesiredState);
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable && 
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+		
+		if (APawn* Pawn = GetPawn<APawn>())
+		{
+			if (Pawn->IsLocallyControlled() && Pawn->InputComponent)
+			{
+				InitializePlayerInput(Pawn->InputComponent);
+			}
+		}
+	}
 }
 
 void UHACF_HeroComponent::CheckDefaultInitialization()
 {
-	IGameFrameworkInitStateInterface::CheckDefaultInitialization();
+	static const TArray<FGameplayTag> StateChain =
+	{
+		HACF_GameplayTags::InitState_Spawned,
+		HACF_GameplayTags::InitState_DataAvailable,
+		HACF_GameplayTags::InitState_DataInitialized,
+		HACF_GameplayTags::InitState_GameplayReady
+	};
+
+	ContinueInitStateChain(StateChain);
 }
 
 void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
 {
-	IGameFrameworkInitStateInterface::OnActorInitStateChanged(Params);
+	if (Params.FeatureName == UHACF_CombatComponent::NAME_ActorFeatureName)
+	{
+		CheckDefaultInitialization();
+	}
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)

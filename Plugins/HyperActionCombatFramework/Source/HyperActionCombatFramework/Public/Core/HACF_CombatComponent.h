@@ -38,6 +38,8 @@ public:
 	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	//~End
 	
+	void HandlePlayerStateChanged();
+	
 	void InitializeWithASC(UAbilitySystemComponent* InASC, AActor* InOwnerActor);
 	void UninitializeFromASC();
 	

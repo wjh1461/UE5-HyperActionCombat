@@ -40,7 +40,9 @@ void UHACF_CombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	BindOnActorInitStateChanged(NAME_ActorFeatureName, FGameplayTag(), false);
+	BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
+	
+	ensure(TryToChangeInitState(HACF_GameplayTags::InitState_Spawned));
 	
 	CheckDefaultInitialization();
 }
@@ -145,6 +147,11 @@ void UHACF_CombatComponent::CheckDefaultInitialization()
 }
 
 void UHACF_CombatComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
+{
+	CheckDefaultInitialization();
+}
+
+void UHACF_CombatComponent::HandlePlayerStateChanged()
 {
 	CheckDefaultInitialization();
 }
