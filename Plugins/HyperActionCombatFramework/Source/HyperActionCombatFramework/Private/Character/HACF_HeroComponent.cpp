@@ -2,10 +2,13 @@
 
 
 #include "Character/HACF_HeroComponent.h"
+
+#include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "HACF_GameplayTags.h"
 #include "InputMappingContext.h"
+#include "AbilitySystem/HACF_AbilitySet.h"
 #include "Character/HACF_PawnData.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "Core/HACF_CombatComponent.h"
@@ -23,10 +26,21 @@ UHACF_HeroComponent::UHACF_HeroComponent(const FObjectInitializer& ObjectInitial
 }
 
 // Called every frame
-void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-										FActorComponentTickFunction* ThisTickFunction)
+void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}
+
+void UHACF_HeroComponent::OnRegister()
+{
+	Super::OnRegister();
+	
+	if (!IsTemplate())
+	{
+		ensureMsgf(GetPawn<APawn>() != nullptr, TEXT("HACF_HeroComponent must be attached to a Pawn."));
+
+		RegisterInitStateFeature();
+	}
 }
 
 // Called when the game starts
@@ -34,7 +48,7 @@ void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	BindOnActorInitStateChanged(UHACF_CombatComponent::NAME_ActorFeatureName, FGameplayTag(), false);
+	BindOnActorInitStateChanged(UHACF_CombatComponent::NAME_ActorFeatureName, FGameplayTag(), true);
 	
 	ensure(TryToChangeInitState(HACF_GameplayTags::InitState_Spawned));
 	
@@ -49,8 +63,7 @@ void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-                                             FGameplayTag DesiredState) const
+bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
 	const APawn* Pawn = GetPawn<APawn>();
 
@@ -63,8 +76,27 @@ bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Man
 	if (CurrentState == HACF_GameplayTags::InitState_Spawned &&
 		DesiredState == HACF_GameplayTags::InitState_DataAvailable)
 	{
-		const UHACF_CombatComponent* FoundCombat = Pawn ? Pawn->FindComponentByClass<UHACF_CombatComponent>() : nullptr;
-		return FoundCombat != nullptr && PawnData != nullptr;
+		if (!Pawn || !PawnData)
+		{
+			return false;
+		}
+
+		if (!Pawn->FindComponentByClass<UHACF_CombatComponent>())
+		{
+			return false;
+		}
+
+		// Simulated Proxy와 원격 서버 Pawn은 입력 컴포넌트를 기다리지 않는다.
+		if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+		{
+			const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
+			if (!PlayerController || !PlayerController->GetLocalPlayer() || !Pawn->InputComponent)
+			{
+				return false;
+			}
+		}
+		
+		return true;
 	}
 
 	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
@@ -92,10 +124,29 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 	{
 		CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
 		
+		check(CombatComponent);
+		
+		UAbilitySystemComponent* ASC = CombatComponent->GetAbilitySystemComponent();
+		
+		check(ASC);
+		
+		// AbilitySet 부여는 서버만 수행한다.
+		if (ASC->IsOwnerActorAuthoritative())
+		{
+			for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
+			{
+				if (AbilitySet)
+				{
+					AbilitySet->GiveToAbilitySystem(ASC, &GrantedAbilitySetHandles, GetOwner());
+				}
+			}
+		}
+		
 		if (APawn* Pawn = GetPawn<APawn>())
 		{
-			if (Pawn->IsLocallyControlled() && Pawn->InputComponent)
+			if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
 			{
+				check(Pawn->InputComponent);
 				InitializePlayerInput(Pawn->InputComponent);
 			}
 		}
@@ -121,6 +172,11 @@ void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedPa
 	{
 		CheckDefaultInitialization();
 	}
+}
+
+void UHACF_HeroComponent::HandlePlayerStateChanged()
+{
+	CheckDefaultInitialization();
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)

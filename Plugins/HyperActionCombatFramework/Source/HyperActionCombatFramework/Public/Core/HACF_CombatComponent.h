@@ -26,8 +26,6 @@ public:
 	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
-	virtual void OnRegister() override;
-	
 	//~Begin IGameFrameworkInitStateInterface
 	static const FName NAME_ActorFeatureName;
 	
@@ -56,6 +54,8 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
+	virtual void OnRegister() override;
 	
 	virtual bool ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const;
 	

@@ -7,6 +7,7 @@
 #include "GameplayAbilitySpec.h"
 #include "HACF_GameplayTags.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "Components/GameFrameworkComponentManager.h"
 #include "GameFramework/PlayerState.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
@@ -40,7 +41,7 @@ void UHACF_CombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
+	//BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
 	
 	ensure(TryToChangeInitState(HACF_GameplayTags::InitState_Spawned));
 	
@@ -78,10 +79,9 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 	return IsValid(OutASC);
 }
 
-bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-                                               FGameplayTag DesiredState) const
+bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
-	const APawn* Pawn = GetPawn<APawn>();
+	APawn* Pawn = GetPawn<APawn>();
 	
 	if (!CurrentState.IsValid() && 
 		DesiredState == HACF_GameplayTags::InitState_Spawned)
