@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "HACF_GameplayTags.h"
+#include "HACF_LogChannels.h"
 #include "InputMappingContext.h"
 #include "AbilitySystem/HACF_AbilitySet.h"
 #include "Character/HACF_PawnData.h"
@@ -46,6 +47,17 @@ void UHACF_HeroComponent::OnRegister()
 void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	if (!PawnData)
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] HeroComponent cannot initialize: PawnData is not configured. Owner=%s"), *GetNameSafe(this), *GetNameSafe(GetOwner()));
+	}
+
+	const APawn* Pawn = GetPawn<APawn>();
+	if (Pawn && !Pawn->FindComponentByClass<UHACF_CombatComponent>())
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] HeroComponent cannot initialize: required CombatComponent is missing. Pawn=%s"), *GetNameSafe(this), *GetNameSafe(Pawn));
+	}
 	
 	BindOnActorInitStateChanged(UHACF_CombatComponent::NAME_ActorFeatureName, FGameplayTag(), true);
 	
@@ -123,11 +135,20 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 	{
 		CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
 		
-		check(CombatComponent);
+		if (!CombatComponent)
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] DataInitialized transition aborted: CombatComponent is missing. Owner=%s"), *GetNameSafe(this), *GetNameSafe(GetOwner()));
+			return;
+		}
 		
 		UAbilitySystemComponent* ASC = CombatComponent->GetAbilitySystemComponent();
 		
-		check(ASC);
+		if (!ASC)
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] DataInitialized transition aborted: CombatComponent has no initialized ASC. Owner=%s, CombatComponent=%s"), 
+				*GetNameSafe(this), *GetNameSafe(GetOwner()), *GetNameSafe(CombatComponent));
+			return;
+		}
 		
 		// AbilitySet 부여는 서버만 수행한다.
 		if (ASC->IsOwnerActorAuthoritative())
@@ -196,10 +217,23 @@ void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComp
 	check(Subsystem);
 	
 	Subsystem->ClearAllMappings();
+	
+	if (!PawnData)
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] Input initialization failed: PawnData is missing."), *GetNameSafe(this));
+		return;
+	}
+
+	const UHACF_InputConfig* InputConfig = PawnData->InputConfig;
+	if (!InputConfig)
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] Input initialization failed: PawnData %s has no InputConfig."), *GetNameSafe(this), *GetNameSafe(PawnData));
+		return;
+	}
 
 	if (PawnData)
 	{
-		if (const UHACF_InputConfig* InputConfig = PawnData->InputConfig)
+		if (InputConfig)
 		{
 			// InputMappingContext 추가
 			for (const FInputMappingContextAndPriority& Mapping : PawnData->DefaultInputMappings)

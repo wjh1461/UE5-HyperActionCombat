@@ -6,6 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "GameplayAbilitySpec.h"
 #include "HACF_GameplayTags.h"
+#include "HACF_LogChannels.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "GameFramework/PlayerState.h"
@@ -123,12 +124,15 @@ void UHACF_CombatComponent::HandleChangeInitState(UGameFrameworkComponentManager
 		AActor* ResolvedOwner = nullptr;
 
 		const bool bResolved = ResolveAbilitySystem(ResolvedASC, ResolvedOwner);
-
-		if (!ensureMsgf(bResolved, TEXT("CombatComponent could not resolve its PlayerState ASC.")))
+		if (!bResolved)
 		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] DataInitialized transition aborted: failed to resolve PlayerState ASC. Pawn=%s, PlayerState=%s"),
+				*GetNameSafe(this),
+				*GetNameSafe(GetPawn<APawn>()),
+				*GetNameSafe(GetPlayerState<APlayerState>()));
 			return;
 		}
-
+		
 		InitializeWithASC(ResolvedASC, ResolvedOwner);
 	}
 }
@@ -153,6 +157,26 @@ void UHACF_CombatComponent::OnActorInitStateChanged(const FActorInitStateChanged
 
 void UHACF_CombatComponent::HandlePlayerStateChanged()
 {
+	APlayerState* PlayerState = GetPlayerState<APlayerState>();
+	if (PlayerState)
+	{
+		const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(PlayerState);
+		if (!AbilitySystemProvider)
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] CombatComponent cannot initialize: PlayerState %s does not implement IAbilitySystemInterface. Pawn=%s"),
+				*GetNameSafe(this),
+				*GetNameSafe(PlayerState),
+				*GetNameSafe(GetPawn<APawn>()));
+		}
+		else if (!AbilitySystemProvider->GetAbilitySystemComponent())
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] CombatComponent cannot initialize: PlayerState %s returned a null ASC. Pawn=%s"),
+				*GetNameSafe(this),
+				*GetNameSafe(PlayerState),
+				*GetNameSafe(GetPawn<APawn>()));
+		}
+	}
+	
 	CheckDefaultInitialization();
 }
 

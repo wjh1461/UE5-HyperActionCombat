@@ -3,6 +3,8 @@
 
 #include "Input/HACF_InputConfig.h"
 
+#include "HACF_LogChannels.h"
+
 const UInputAction* UHACF_InputConfig::FindNativeInputActionForTag(const FGameplayTag& InputTag, bool bLogNotFound) const
 {
 	for (const FHACF_InputAction& Action : NativeInputActions)
@@ -15,8 +17,7 @@ const UInputAction* UHACF_InputConfig::FindNativeInputActionForTag(const FGamepl
 
 	if (bLogNotFound)
 	{
-		//TODO: 로그 카테고리를 플러그인 전용 로그 카테고리로 변경
-		UE_LOG(LogTemp, Error, TEXT("Can't find NativeInputAction for InputTag [%s] on InputConfig [%s]."), *InputTag.ToString(), *GetNameSafe(this));
+		UE_LOG(LogHACFInput, Error, TEXT("Can't find NativeInputAction for InputTag [%s] on InputConfig [%s]."), *InputTag.ToString(), *GetNameSafe(this));
 	}
 
 	return nullptr;
@@ -34,8 +35,7 @@ const UInputAction* UHACF_InputConfig::FindAbilityInputActionForTag(const FGamep
 
 	if (bLogNotFound)
 	{
-		//TODO: 로그 카테고리를 플러그인 전용 로그 카테고리로 변경
-		UE_LOG(LogTemp, Error, TEXT("Can't find AbilityInputAction for InputTag [%s] on InputConfig [%s]."), *InputTag.ToString(), *GetNameSafe(this));
+		UE_LOG(LogHACFInput, Error, TEXT("Can't find AbilityInputAction for InputTag [%s] on InputConfig [%s]."), *InputTag.ToString(), *GetNameSafe(this));
 	}
 
 	return nullptr;
