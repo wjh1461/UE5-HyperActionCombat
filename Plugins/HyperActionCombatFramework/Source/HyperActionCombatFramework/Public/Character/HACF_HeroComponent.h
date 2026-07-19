@@ -6,7 +6,9 @@
 #include "EnhancedInputComponent.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
-#include "Components/ActorComponent.h"
+#include "AbilitySystem/HACF_AbilitySet.h"
+#include "Components/GameFrameworkInitStateInterface.h"
+#include "Components/PawnComponent.h"
 #include "Input/HACF_InputConfig.h"
 #include "HACF_HeroComponent.generated.h"
 
@@ -20,21 +22,35 @@ struct FInputMappingContextAndPriority;
  * 
  */
 UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
-class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UActorComponent
+class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UPawnComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	UHACF_HeroComponent();
+	UHACF_HeroComponent(const FObjectInitializer& ObjectInitializer);
 	
 	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-							   FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
+	//~Begin IGameFrameworkInitStateInterface
+	static const FName NAME_ActorFeatureName;
+	
+	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
+	virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState) override;
+	virtual void CheckDefaultInitialization() override;
+	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
+	//~End
+	
+	void HandlePlayerStateChanged();
 
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
+	virtual void OnRegister() override;
 	
 	// 바인딩 처리
 	void InitializePlayerInput(UInputComponent* PlayerInputComponent);
@@ -56,6 +72,8 @@ protected:
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UHACF_CombatComponent> CombatComponent;
+	
+	FHACF_AbilitySet_GrantedHandles GrantedAbilitySetHandles;
 };
 
 template<class UserClass, typename FuncType>

@@ -2,62 +2,201 @@
 
 
 #include "Character/HACF_HeroComponent.h"
-#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "HACF_GameplayTags.h"
+#include "HACF_LogChannels.h"
 #include "InputMappingContext.h"
 #include "AbilitySystem/HACF_AbilitySet.h"
 #include "Character/HACF_PawnData.h"
+#include "Components/GameFrameworkComponentManager.h"
 #include "Core/HACF_CombatComponent.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/PlayerController.h"
 #include "Input/HACF_InputConfig.h"
 
+const FName UHACF_HeroComponent::NAME_ActorFeatureName("HACF.Hero");
 
-// Sets default values for this component's properties
-UHACF_HeroComponent::UHACF_HeroComponent()
+UHACF_HeroComponent::UHACF_HeroComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 	
 }
 
 // Called every frame
-void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-										FActorComponentTickFunction* ThisTickFunction)
+void UHACF_HeroComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
 }
 
+void UHACF_HeroComponent::OnRegister()
+{
+	Super::OnRegister();
+	
+	if (!IsTemplate())
+	{
+		ensureMsgf(GetPawn<APawn>() != nullptr, TEXT("HACF_HeroComponent must be attached to a Pawn."));
+
+		RegisterInitStateFeature();
+	}
+}
 
 // Called when the game starts
 void UHACF_HeroComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	//TODO: 추후 ModularGameplay 플러그인을 사용하여 초기화 부분 수정
-	CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
-	CombatComponent->InitializeWithASC(GetOwner()->FindComponentByClass<UAbilitySystemComponent>());
-	
-	if (PawnData)
+	if (!PawnData)
 	{
-		for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] HeroComponent cannot initialize: PawnData is not configured. Owner=%s"), *GetNameSafe(this), *GetNameSafe(GetOwner()));
+	}
+
+	const APawn* Pawn = GetPawn<APawn>();
+	if (Pawn && !Pawn->FindComponentByClass<UHACF_CombatComponent>())
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] HeroComponent cannot initialize: required CombatComponent is missing. Pawn=%s"), *GetNameSafe(this), *GetNameSafe(Pawn));
+	}
+	
+	BindOnActorInitStateChanged(UHACF_CombatComponent::NAME_ActorFeatureName, FGameplayTag(), true);
+	
+	ensure(TryToChangeInitState(HACF_GameplayTags::InitState_Spawned));
+	
+	CheckDefaultInitialization();
+}
+
+void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnregisterInitStateFeature();
+	CombatComponent = nullptr;
+	
+	Super::EndPlay(EndPlayReason);
+}
+
+bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
+{
+	const APawn* Pawn = GetPawn<APawn>();
+
+	if (!CurrentState.IsValid() &&
+		DesiredState == HACF_GameplayTags::InitState_Spawned)
+	{
+		return Pawn != nullptr;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_Spawned &&
+		DesiredState == HACF_GameplayTags::InitState_DataAvailable)
+	{
+		if (!Pawn || !PawnData)
 		{
-			if (AbilitySet)
+			return false;
+		}
+
+		if (!Pawn->FindComponentByClass<UHACF_CombatComponent>())
+		{
+			return false;
+		}
+
+		// Simulated Proxy와 원격 서버 Pawn은 입력 컴포넌트를 기다리지 않는다.
+		if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+		{
+			const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
+			if (!PlayerController || !PlayerController->GetLocalPlayer() || !Pawn->InputComponent)
 			{
-				AbilitySet->GiveToAbilitySystem(CombatComponent->GetAbilitySystemComponent(), nullptr);
+				return false;
+			}
+		}
+		
+		return true;
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		return Manager->HasFeatureReachedInitState(GetOwner(), UHACF_CombatComponent::NAME_ActorFeatureName,
+			HACF_GameplayTags::InitState_DataInitialized);
+	}
+
+	if (CurrentState == HACF_GameplayTags::InitState_DataInitialized &&
+		DesiredState == HACF_GameplayTags::InitState_GameplayReady)
+	{
+		return Manager->HasFeatureReachedInitState(GetOwner(), UHACF_CombatComponent::NAME_ActorFeatureName, 
+			HACF_GameplayTags::InitState_GameplayReady);
+	}
+
+	return false;
+}
+
+void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
+	FGameplayTag DesiredState)
+{
+	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable && 
+		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
+	{
+		CombatComponent = GetOwner()->FindComponentByClass<UHACF_CombatComponent>();
+		
+		if (!CombatComponent)
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] DataInitialized transition aborted: CombatComponent is missing. Owner=%s"), *GetNameSafe(this), *GetNameSafe(GetOwner()));
+			return;
+		}
+		
+		UAbilitySystemComponent* ASC = CombatComponent->GetAbilitySystemComponent();
+		
+		if (!ASC)
+		{
+			UE_LOG(LogHACFInitState, Error, TEXT("[%s] DataInitialized transition aborted: CombatComponent has no initialized ASC. Owner=%s, CombatComponent=%s"), 
+				*GetNameSafe(this), *GetNameSafe(GetOwner()), *GetNameSafe(CombatComponent));
+			return;
+		}
+		
+		// AbilitySet 부여는 서버만 수행한다.
+		if (ASC->IsOwnerActorAuthoritative())
+		{
+			for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
+			{
+				if (AbilitySet)
+				{
+					AbilitySet->GiveToAbilitySystem(ASC, &GrantedAbilitySetHandles, GetOwner());
+				}
+			}
+		}
+		
+		if (APawn* Pawn = GetPawn<APawn>())
+		{
+			if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+			{
+				check(Pawn->InputComponent);
+				InitializePlayerInput(Pawn->InputComponent);
 			}
 		}
 	}
-	
-	if(APawn* Pawn = Cast<APawn>(GetOwner()))
+}
+
+void UHACF_HeroComponent::CheckDefaultInitialization()
+{
+	static const TArray<FGameplayTag> StateChain =
 	{
-		if (Pawn->InputComponent)
-		{
-			InitializePlayerInput(Pawn->InputComponent);
-		}
+		HACF_GameplayTags::InitState_Spawned,
+		HACF_GameplayTags::InitState_DataAvailable,
+		HACF_GameplayTags::InitState_DataInitialized,
+		HACF_GameplayTags::InitState_GameplayReady
+	};
+
+	ContinueInitStateChain(StateChain);
+}
+
+void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
+{
+	if (Params.FeatureName == UHACF_CombatComponent::NAME_ActorFeatureName)
+	{
+		CheckDefaultInitialization();
 	}
+}
+
+void UHACF_HeroComponent::HandlePlayerStateChanged()
+{
+	CheckDefaultInitialization();
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
@@ -78,10 +217,23 @@ void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComp
 	check(Subsystem);
 	
 	Subsystem->ClearAllMappings();
+	
+	if (!PawnData)
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] Input initialization failed: PawnData is missing."), *GetNameSafe(this));
+		return;
+	}
+
+	const UHACF_InputConfig* InputConfig = PawnData->InputConfig;
+	if (!InputConfig)
+	{
+		UE_LOG(LogHACFInitState, Error, TEXT("[%s] Input initialization failed: PawnData %s has no InputConfig."), *GetNameSafe(this), *GetNameSafe(PawnData));
+		return;
+	}
 
 	if (PawnData)
 	{
-		if (const UHACF_InputConfig* InputConfig = PawnData->InputConfig)
+		if (InputConfig)
 		{
 			// InputMappingContext 추가
 			for (const FInputMappingContextAndPriority& Mapping : PawnData->DefaultInputMappings)

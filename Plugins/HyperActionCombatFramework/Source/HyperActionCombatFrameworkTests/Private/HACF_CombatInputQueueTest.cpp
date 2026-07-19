@@ -56,7 +56,7 @@ namespace HyperActionCombatFrameworkTests
 			CombatComponent = static_cast<UHACF_CombatComponent_Accessor*>(RawCombatComponent);
 			
 			// BeginPlay 모사: ASC를 Owner로부터 정상적으로 캐싱하도록 함
-			CombatComponent->InitializeWithASC(ASC);
+			CombatComponent->InitializeWithASC(ASC, DummyPawn);
 		}
 				
 		// 테스트 시나리오 1: Pressed 입력 처리

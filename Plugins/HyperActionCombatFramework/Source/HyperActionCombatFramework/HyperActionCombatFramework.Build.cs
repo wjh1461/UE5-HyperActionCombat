@@ -32,7 +32,8 @@ public class HyperActionCombatFramework : ModuleRules
 				"GameplayTags",
 				"GameplayTasks",
 				
-				"Mover"
+				"Mover",
+				"ModularGameplay"
 			}
 			);
 			

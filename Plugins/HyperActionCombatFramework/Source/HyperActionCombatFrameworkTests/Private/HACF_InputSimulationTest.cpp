@@ -7,6 +7,7 @@
 #include "Input/HACF_InputConfig.h"
 #include "Components/InputTestActions.h"
 #include "Core/HACF_CombatComponent.h"
+#include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 
 namespace HyperActionCombatFrameworkTests
@@ -99,7 +100,7 @@ namespace HyperActionCombatFrameworkTests
 					
 					CombatComponent = NewObject<UHACF_CombatComponent_Accessor>(TestPawn);
 					CombatComponent->RegisterComponent();
-					CombatComponent->InitializeWithASC(AbilitySystemComponent);
+					CombatComponent->InitializeWithASC(AbilitySystemComponent, TestPawn);
 
 					HeroComponent = NewObject<UHACF_HeroComponent_Accessor>(TestPawn);
 					HeroComponent->RegisterComponent();
