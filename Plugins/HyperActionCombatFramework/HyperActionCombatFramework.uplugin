@@ -23,7 +23,7 @@
 		{
 			"Name": "HyperActionCombatFrameworkTests",
 			"Type": "UncookedOnly",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostDefault"
 		}
 	],
 	"Plugins": [

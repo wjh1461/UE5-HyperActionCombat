@@ -74,7 +74,7 @@ namespace HyperActionCombatFrameworkTests
 			Spawner->AddWaitUntilLoadedCommand(TestRunner);
 
 			PawnData = Cast<UHACF_PawnData>(StaticLoadObject(UHACF_PawnData::StaticClass(), nullptr, 
-				TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Characters/CombatPawnData.CombatPawnData'")));
+				TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Data/CombatPawnData.CombatPawnData'")));
 			InputConfig = PawnData->InputConfig;
 		}
 		
