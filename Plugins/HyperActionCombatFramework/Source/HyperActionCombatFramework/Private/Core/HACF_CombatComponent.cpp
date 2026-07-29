@@ -16,7 +16,7 @@ const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
 UHACF_CombatComponent::UHACF_CombatComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 // Called every frame
@@ -281,6 +281,11 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 
 void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 {
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+	
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
 	AbilitiesToActivate.Reset();
 	
@@ -316,7 +321,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 				else
 				{
 					const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered) // 입력 타입 필터링 조건 추가해야함
+					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered)
 					{
 						AbilitiesToActivate.Add(AbilitySpec->Handle);
 					}
