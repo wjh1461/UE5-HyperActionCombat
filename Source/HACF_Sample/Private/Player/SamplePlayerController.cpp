@@ -8,9 +8,9 @@
 
 void ASamplePlayerController::PostProcessInput(const float DeltaTime, const bool bGamePaused)
 {
-	if (const APawn* Pawn = GetPawn())
+	if (const APawn* ControlledPawn = GetPawn())
 	{
-		if (UHACF_CombatComponent* CombatComponent = Pawn->FindComponentByClass<UHACF_CombatComponent>())
+		if (UHACF_CombatComponent* CombatComponent = ControlledPawn->FindComponentByClass<UHACF_CombatComponent>())
 		{
 			CombatComponent->ProcessAbilityInput(DeltaTime, bGamePaused);
 		}
