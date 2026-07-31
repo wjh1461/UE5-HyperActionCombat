@@ -8,6 +8,7 @@
 #include "Components/PawnComponent.h"
 #include "HACF_CombatComponent.generated.h"
 
+struct FGameplayAbilitySpec;
 class UAbilitySystemComponent;
 struct FGameplayAbilitySpecHandle;
 
@@ -57,6 +58,10 @@ protected:
 	virtual void OnRegister() override;
 	
 	virtual bool ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const;
+	
+	// ASC AbilityInput 이벤트 전달
+	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
+	void DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec);
 	
 	// 입력 처리용 버퍼
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;

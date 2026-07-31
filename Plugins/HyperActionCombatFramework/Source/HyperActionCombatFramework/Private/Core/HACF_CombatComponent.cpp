@@ -80,6 +80,42 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 	return IsValid(OutASC);
 }
 
+void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
+{
+	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, OriginalPredictionKey);
+}
+
+void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec)
+{
+	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, OriginalPredictionKey);
+}
+
 bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
 	APawn* Pawn = GetPawn<APawn>();
@@ -316,7 +352,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 				
 				if (AbilitySpec->IsActive())
 				{
-					ASC->AbilitySpecInputPressed(*AbilitySpec);
+					DispatchAbilityInputPressed(*AbilitySpec);
 				}
 				else
 				{
@@ -347,7 +383,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 
 				if (AbilitySpec->IsActive())
 				{
-					ASC->AbilitySpecInputReleased(*AbilitySpec);
+					DispatchAbilityInputReleased(*AbilitySpec);
 				}
 			}
 		}
