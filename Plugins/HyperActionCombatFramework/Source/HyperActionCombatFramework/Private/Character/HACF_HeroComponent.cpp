@@ -254,6 +254,7 @@ void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComp
 				{
 					EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Triggered, this, &ThisClass::Input_AbilityInputTagPressed, Action.InputTag);
 					EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Completed, this, &ThisClass::Input_AbilityInputTagReleased, Action.InputTag);
+					EnhancedInputComponent->BindAction(Action.InputAction, ETriggerEvent::Canceled, this, &ThisClass::Input_AbilityInputTagReleased, Action.InputTag);
 				}
 			}
 			

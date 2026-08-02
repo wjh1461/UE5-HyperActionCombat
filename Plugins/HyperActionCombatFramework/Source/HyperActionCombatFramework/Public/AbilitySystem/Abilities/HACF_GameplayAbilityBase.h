@@ -15,9 +15,6 @@ enum class EHACFAbilityActivationPolicy : uint8
 	// 입력을 누르고 있는 동안
 	WhileInputActive,
 	
-	// 입력을 뗐을 때
-	OnInputReleased,
-	
 	// avatar가 생성되었을 경우, 바로 할당
 	OnSpawn,
 	
@@ -34,6 +31,8 @@ class HYPERACTIONCOMBATFRAMEWORK_API UHACF_GameplayAbilityBase : public UGamepla
 	GENERATED_BODY()
 	
 public:
+	UHACF_GameplayAbilityBase();
+	
 	EHACFAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
 	
 protected:

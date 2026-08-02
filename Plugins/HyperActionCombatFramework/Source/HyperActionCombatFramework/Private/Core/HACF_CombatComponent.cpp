@@ -16,7 +16,7 @@ const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
 UHACF_CombatComponent::UHACF_CombatComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 // Called every frame
@@ -78,6 +78,46 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 	OutOwnerActor = PlayerState;
 	
 	return IsValid(OutASC);
+}
+
+void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
+{
+	ASC->AbilitySpecInputPressed(AbilitySpec);
+	
+	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, OriginalPredictionKey);
+}
+
+void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec)
+{
+	ASC->AbilitySpecInputReleased(AbilitySpec);
+	
+	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, OriginalPredictionKey);
 }
 
 bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
@@ -250,8 +290,11 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 			// 배열에 저장
 			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 			{
-				InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+				if (!InputHeldSpecHandles.Contains(AbilitySpec.Handle))
+				{
+					InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
+					InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+				}
 			}
 		}
 	}
@@ -271,8 +314,10 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 			// 배열에 저장
 			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 			{
-				InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.Remove(AbilitySpec.Handle);
+				if (InputHeldSpecHandles.Remove(AbilitySpec.Handle) > 0)
+				{
+					InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
+				}
 			}
 		}
 	}
@@ -281,6 +326,11 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 
 void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 {
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+	
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
 	AbilitiesToActivate.Reset();
 	
@@ -311,12 +361,12 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 				
 				if (AbilitySpec->IsActive())
 				{
-					ASC->AbilitySpecInputPressed(*AbilitySpec);
+					DispatchAbilityInputPressed(*AbilitySpec);
 				}
 				else
 				{
 					const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
-					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered) // 입력 타입 필터링 조건 추가해야함
+					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered)
 					{
 						AbilitiesToActivate.Add(AbilitySpec->Handle);
 					}
@@ -342,7 +392,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 
 				if (AbilitySpec->IsActive())
 				{
-					ASC->AbilitySpecInputReleased(*AbilitySpec);
+					DispatchAbilityInputReleased(*AbilitySpec);
 				}
 			}
 		}
