@@ -82,6 +82,8 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
 {
+	ASC->AbilitySpecInputPressed(AbilitySpec);
+	
 	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
 	{
 		return;
@@ -100,6 +102,8 @@ void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& Ab
 
 void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec)
 {
+	ASC->AbilitySpecInputReleased(AbilitySpec);
+	
 	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
 	{
 		return;
@@ -286,8 +290,11 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 			// 배열에 저장
 			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 			{
-				InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+				if (!InputHeldSpecHandles.Contains(AbilitySpec.Handle))
+				{
+					InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
+					InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+				}
 			}
 		}
 	}
@@ -307,8 +314,10 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 			// 배열에 저장
 			if (AbilitySpec.Ability && AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(InputTag))
 			{
-				InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
-				InputHeldSpecHandles.Remove(AbilitySpec.Handle);
+				if (InputHeldSpecHandles.Remove(AbilitySpec.Handle) > 0)
+				{
+					InputReleasedSpecHandles.AddUnique(AbilitySpec.Handle);
+				}
 			}
 		}
 	}

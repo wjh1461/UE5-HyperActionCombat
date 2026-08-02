@@ -163,5 +163,160 @@ namespace HyperActionCombatFrameworkTests
 			// 처리가 끝난 후 Released 큐는 비워졌는가?
 			ASSERT_THAT(IsTrue(CombatComponent->InputReleasedSpecHandles.IsEmpty()));
 		}
+
+		TEST_METHOD(AbilityInputTagPressed_DoesNotQueueDuplicatePressesWhileHeld)
+		{
+			// Arrange
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			// Act: 같은 프레임에 중복 Press 입력
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->AbilityInputTagPressed(TestTag);
+
+			// Assert
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputPressedSpecHandles.Num()));
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputHeldSpecHandles.Num()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.Contains(GivenHandle)));
+
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+			CombatComponent->AbilityInputTagPressed(TestTag);
+
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.IsEmpty()));
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputHeldSpecHandles.Num()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+		}
+
+		TEST_METHOD(AbilityInputTagReleased_DoesNotQueueDuplicateReleases)
+		{
+			// Arrange
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+			
+			CombatComponent->AbilityInputTagPressed(TestTag);
+
+			// Act
+			CombatComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->AbilityInputTagReleased(TestTag);
+
+			// Assert
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputReleasedSpecHandles.Num()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputReleasedSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsFalse(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+		}
+
+		TEST_METHOD(AbilityInputTagPressed_QueuesNewPressAfterRelease)
+		{
+			// Arrange
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+			
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+			
+			CombatComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			// Act
+			CombatComponent->AbilityInputTagPressed(TestTag);
+
+			// Assert
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputPressedSpecHandles.Num()));
+			ASSERT_THAT(AreEqual(1, CombatComponent->InputHeldSpecHandles.Num()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_DispatchesEachInputCallbackOnceToActiveAbility)
+		{
+			// Arrange
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+			ASSERT_THAT(IsTrue(ASC->TryActivateAbility(GivenHandle)));
+
+			FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			
+			UTestGameplayAbility* AbilityInstance = Cast<UTestGameplayAbility>(FoundSpec->GetPrimaryInstance());
+			ASSERT_THAT(IsNotNull(AbilityInstance));
+			
+			const FPredictionKey PredictionKey = AbilityInstance->GetCurrentActivationInfo().GetActivationPredictionKey();
+			int32 ReplicatedInputPressedCount = 0;
+			int32 ReplicatedInputReleasedCount = 0;
+			const FDelegateHandle InputPressedDelegateHandle = ASC->AbilityReplicatedEventDelegate(
+				EAbilityGenericReplicatedEvent::InputPressed, GivenHandle, PredictionKey).AddLambda(
+				[&ReplicatedInputPressedCount]() { ++ReplicatedInputPressedCount; });
+			const FDelegateHandle InputReleasedDelegateHandle = ASC->AbilityReplicatedEventDelegate(
+				EAbilityGenericReplicatedEvent::InputReleased, GivenHandle, PredictionKey).AddLambda(
+				[&ReplicatedInputReleasedCount]() { ++ReplicatedInputReleasedCount; });
+
+			// Act: 중복 입력과 Held 상태의 다음 프레임 입력을 연속 처리
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+			
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+			
+			CombatComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+			
+			CombatComponent->AbilityInputTagReleased(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			// Assert
+			ASSERT_THAT(AreEqual(1, AbilityInstance->GetInputPressedCount()));
+			ASSERT_THAT(AreEqual(1, AbilityInstance->GetInputReleasedCount()));
+			ASSERT_THAT(AreEqual(1, ReplicatedInputPressedCount));
+			ASSERT_THAT(AreEqual(1, ReplicatedInputReleasedCount));
+
+			ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::InputPressed,
+				GivenHandle, PredictionKey).Remove(InputPressedDelegateHandle);
+			ASC->AbilityReplicatedEventDelegate(EAbilityGenericReplicatedEvent::InputReleased,
+				GivenHandle, PredictionKey).Remove(InputReleasedDelegateHandle);
+		}
+
+		TEST_METHOD(ProcessAbilityInput_ReactivatesWhileInputActiveAbilityWhileHeld)
+		{
+			// Arrange
+			FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestWhileInputActiveGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			
+			UTestGameplayAbility* AbilityInstance = Cast<UTestGameplayAbility>(FoundSpec->GetPrimaryInstance());
+			ASSERT_THAT(IsNotNull(AbilityInstance));
+			ASSERT_THAT(AreEqual(1, AbilityInstance->GetActivationCount()));
+			
+			AbilityInstance->EndTestAbility();
+
+			// Act: Held 큐를 유지한 상태에서 다음 프레임 입력 처리
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			// Assert
+			ASSERT_THAT(AreEqual(2, AbilityInstance->GetActivationCount()));
+			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+
+		}
 	};
 }
