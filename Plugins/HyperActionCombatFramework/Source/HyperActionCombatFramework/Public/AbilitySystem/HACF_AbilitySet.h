@@ -9,7 +9,7 @@
 
 struct FGameplayAbilitySpecHandle;
 class UAbilitySystemComponent;
-class UHACF_GameplayAbilityBase;
+class UHACF_GameplayAbility;
 
 USTRUCT(BlueprintType)
 struct FHACF_AbilitySet_GameplayAbility
@@ -17,7 +17,7 @@ struct FHACF_AbilitySet_GameplayAbility
 	GENERATED_BODY()
 	
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UHACF_GameplayAbilityBase> Ability;
+	TSubclassOf<UHACF_GameplayAbility> Ability;
 	
 	UPROPERTY(EditDefaultsOnly)
 	int32 AbilityLevel = 1;

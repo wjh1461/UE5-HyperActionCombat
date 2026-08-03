@@ -4,7 +4,7 @@
 #include "AbilitySystem/HACF_AbilitySet.h"
 
 #include "AbilitySystemComponent.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 
 void FHACF_AbilitySet_GrantedHandles::AddAbilitySpecHandle(const FGameplayAbilitySpecHandle& Handle)
 {
@@ -47,7 +47,7 @@ void UHACF_AbilitySet::GiveToAbilitySystem(UAbilitySystemComponent* ASC,
 			continue;
 		}
 		
-		UHACF_GameplayAbilityBase* AbilityCDO = AbilityToGrant.Ability->GetDefaultObject<UHACF_GameplayAbilityBase>();
+		UHACF_GameplayAbility* AbilityCDO = AbilityToGrant.Ability->GetDefaultObject<UHACF_GameplayAbility>();
 		
 		FGameplayAbilitySpec AbilitySpec(AbilityCDO, AbilityToGrant.AbilityLevel);
 		AbilitySpec.SourceObject = SourceObject;

@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 #include "TestGameplayAbility.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class HYPERACTIONCOMBATFRAMEWORKTESTS_API UTestGameplayAbility : public UHACF_GameplayAbilityBase
+class HYPERACTIONCOMBATFRAMEWORKTESTS_API UTestGameplayAbility : public UHACF_GameplayAbility
 {
 	GENERATED_BODY()
 	
