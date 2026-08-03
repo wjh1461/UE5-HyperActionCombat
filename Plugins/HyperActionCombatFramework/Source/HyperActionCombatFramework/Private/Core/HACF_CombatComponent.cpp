@@ -7,7 +7,7 @@
 #include "GameplayAbilitySpec.h"
 #include "HACF_GameplayTags.h"
 #include "HACF_LogChannels.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "GameFramework/PlayerState.h"
 
@@ -84,7 +84,7 @@ void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& Ab
 {
 	ASC->AbilitySpecInputPressed(AbilitySpec);
 	
-	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
 	{
 		return;
 	}
@@ -104,7 +104,7 @@ void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& A
 {
 	ASC->AbilitySpecInputReleased(AbilitySpec);
 	
-	if (!Cast<UHACF_GameplayAbilityBase>(AbilitySpec.Ability))
+	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
 	{
 		return;
 	}
@@ -341,7 +341,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 		{
 			if (AbilitySpec->Ability && !AbilitySpec->IsActive())
 			{
-				const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
+				const UHACF_GameplayAbility* HACFAbilityCDO = CastChecked<UHACF_GameplayAbility>(AbilitySpec->Ability);
 				if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::WhileInputActive)
 				{
 					AbilitiesToActivate.Add(AbilitySpec->Handle);
@@ -365,7 +365,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 				}
 				else
 				{
-					const UHACF_GameplayAbilityBase* HACFAbilityCDO = CastChecked<UHACF_GameplayAbilityBase>(AbilitySpec->Ability);
+					const UHACF_GameplayAbility* HACFAbilityCDO = CastChecked<UHACF_GameplayAbility>(AbilitySpec->Ability);
 					if (HACFAbilityCDO && HACFAbilityCDO->GetActivationPolicy() == EHACFAbilityActivationPolicy::OnInputTriggered)
 					{
 						AbilitiesToActivate.Add(AbilitySpec->Handle);

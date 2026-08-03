@@ -1,7 +1,7 @@
 #include "AbilitySystemComponent.h"
 #include "CQTest.h"
 #include "GameplayTagsManager.h"
-#include "AbilitySystem/Abilities/HACF_GameplayAbilityBase.h"
+#include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 #include "Components/ActorTestSpawner.h"
 #include "Components/MapTestSpawner.h"
 #include "Abilities/TestGameplayAbility.h"
