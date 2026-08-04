@@ -7,7 +7,9 @@
 #include "Engine/DataAsset.h"
 #include "HACF_AbilitySet.generated.h"
 
+struct FActiveGameplayEffectHandle;
 struct FGameplayAbilitySpecHandle;
+class UGameplayEffect;
 class UAbilitySystemComponent;
 class UHACF_GameplayAbility;
 
@@ -33,11 +35,16 @@ struct FHACF_AbilitySet_GrantedHandles
 	
 	void AddAbilitySpecHandle(const FGameplayAbilitySpecHandle& Handle);
 	
+	void AddGameplayEffectHandle(const FActiveGameplayEffectHandle& Handle);
+	
 	void TakeFromAbilitySystem(UAbilitySystemComponent* ASC);
 	
 protected:
 	UPROPERTY()
 	TArray<FGameplayAbilitySpecHandle> AbilitySpecHandles;
+	
+	UPROPERTY()
+	TArray<FActiveGameplayEffectHandle> GameplayEffectHandles;
 };
 
 
@@ -56,4 +63,7 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, Category="Gameplay Abilities", meta=(TitleProperty=Ability))
 	TArray<FHACF_AbilitySet_GameplayAbility> GrantedGameplayAbilities;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Gameplay Effects")
+	TArray<TSubclassOf<UGameplayEffect>> GrantedGameplayEffects;
 };

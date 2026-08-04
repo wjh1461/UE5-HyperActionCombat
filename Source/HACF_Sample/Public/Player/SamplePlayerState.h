@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerState.h"
 #include "SamplePlayerState.generated.h"
 
+class UHACF_AttributeSet;
 /**
  * 
  */
@@ -23,4 +24,7 @@ public:
 private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	
+	UPROPERTY()
+	TObjectPtr<const UHACF_AttributeSet> CombatAttributeSet;
 };

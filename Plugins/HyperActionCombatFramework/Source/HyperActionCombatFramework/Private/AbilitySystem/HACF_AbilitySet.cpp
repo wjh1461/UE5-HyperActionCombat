@@ -2,8 +2,8 @@
 
 
 #include "AbilitySystem/HACF_AbilitySet.h"
-
 #include "AbilitySystemComponent.h"
+#include "HACF_LogChannels.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 
 void FHACF_AbilitySet_GrantedHandles::AddAbilitySpecHandle(const FGameplayAbilitySpecHandle& Handle)
@@ -11,6 +11,14 @@ void FHACF_AbilitySet_GrantedHandles::AddAbilitySpecHandle(const FGameplayAbilit
 	if (Handle.IsValid())
 	{
 		AbilitySpecHandles.Add(Handle);
+	}
+}
+
+void FHACF_AbilitySet_GrantedHandles::AddGameplayEffectHandle(const FActiveGameplayEffectHandle& Handle)
+{
+	if (Handle.IsValid())
+	{
+		GameplayEffectHandles.Add(Handle);
 	}
 }
 
@@ -43,7 +51,7 @@ void UHACF_AbilitySet::GiveToAbilitySystem(UAbilitySystemComponent* ASC,
 		const FHACF_AbilitySet_GameplayAbility& AbilityToGrant = GrantedGameplayAbilities[AbilityIndex];
 		if (!IsValid(AbilityToGrant.Ability))
 		{
-			UE_LOG(LogTemp, Error, TEXT("GrantedGameplayAbilities[%d] on ability set [%s] is not valid."), AbilityIndex, *GetNameSafe(this));
+			UE_LOG(LogHACF, Error, TEXT("GrantedGameplayAbilities[%d] on ability set [%s] is not valid."), AbilityIndex, *GetNameSafe(this));
 			continue;
 		}
 		
@@ -58,6 +66,25 @@ void UHACF_AbilitySet::GiveToAbilitySystem(UAbilitySystemComponent* ASC,
 		if (OutGrantedHandles)
 		{
 			OutGrantedHandles->AddAbilitySpecHandle(AbilitySpecHandle);
+		}
+	}
+	
+	for (int32 EffectIndex = 0; EffectIndex < GrantedGameplayEffects.Num(); ++EffectIndex)
+	{
+		const TSubclassOf EffectToGrant = GrantedGameplayEffects[EffectIndex];
+
+		if (!IsValid(EffectToGrant))
+		{
+			UE_LOG(LogHACF, Error, TEXT("GrantedGameplayEffects[%d] on ability set [%s] is not valid"), EffectIndex, *GetNameSafe(this));
+			continue;
+		}
+		
+		const UGameplayEffect* GameplayEffect = EffectToGrant->GetDefaultObject<UGameplayEffect>();
+		const FActiveGameplayEffectHandle GameplayEffectHandle = ASC->ApplyGameplayEffectToSelf(GameplayEffect, 1.f, ASC->MakeEffectContext());
+
+		if (OutGrantedHandles)
+		{
+			OutGrantedHandles->AddGameplayEffectHandle(GameplayEffectHandle);
 		}
 	}
 }
