@@ -32,7 +32,7 @@ void FHACF_AbilitySet_GrantedHandles::TakeFromAbilitySystem(UAbilitySystemCompon
 		return;
 	}
 
-	for (FGameplayAbilitySpecHandle AbilitySpecHandle : AbilitySpecHandles)
+	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : AbilitySpecHandles)
 	{
 		if (AbilitySpecHandle.IsValid())
 		{
@@ -40,7 +40,16 @@ void FHACF_AbilitySet_GrantedHandles::TakeFromAbilitySystem(UAbilitySystemCompon
 		}
 	}
 	
+	for (const FActiveGameplayEffectHandle& Handle : GameplayEffectHandles)
+	{
+		if (Handle.IsValid())
+		{
+			ASC->RemoveActiveGameplayEffect(Handle);
+		}
+	}
+	
 	AbilitySpecHandles.Reset();
+	GameplayEffectHandles.Reset();
 }
 
 void UHACF_AbilitySet::GiveToAbilitySystem(UAbilitySystemComponent* ASC, 

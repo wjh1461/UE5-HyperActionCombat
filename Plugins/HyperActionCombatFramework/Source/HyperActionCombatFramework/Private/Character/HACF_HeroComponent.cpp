@@ -69,6 +69,7 @@ void UHACF_HeroComponent::BeginPlay()
 void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnregisterInitStateFeature();
+	GrantedAbilitySetHandles.TakeFromAbilitySystem(CombatComponent->GetAbilitySystemComponent()());
 	CombatComponent = nullptr;
 	
 	Super::EndPlay(EndPlayReason);

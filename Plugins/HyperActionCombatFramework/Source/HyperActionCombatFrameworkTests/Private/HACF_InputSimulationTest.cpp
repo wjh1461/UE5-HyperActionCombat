@@ -4,7 +4,6 @@
 #include "Abilities/TestGameplayAbility.h"
 #include "Character/HACF_HeroComponent.h"
 #include "Character/HACF_PawnData.h"
-#include "Components/InputTestActions.h"
 #include "Components/MapTestSpawner.h"
 #include "Core/HACF_CombatComponent.h"
 #include "EnhancedActionKeyMapping.h"
@@ -12,33 +11,11 @@
 #include "EnhancedPlayerInput.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
+#include "Input/HACF_PawnTestActions.h"
 #include "Input/HACF_InputConfig.h"
 
 namespace HyperActionCombatFrameworkTests
 {
-	struct FHACFAbilityTestAction : public FTestAction
-	{
-		explicit FHACFAbilityTestAction(const UInputAction* Action)
-		{
-			InputActionName = Action->GetName();
-			InputActionValue = FInputActionValue(true);
-		}
-	};
-
-	class FHACFPawnTestActions : public FInputTestActions
-	{
-	public:
-		explicit FHACFPawnTestActions(APawn* Pawn)
-			: FInputTestActions(Pawn)
-		{
-		}
-
-		void PressAbilityAction(const UInputAction* Action)
-		{
-			PerformAction(FHACFAbilityTestAction(Action));
-		}
-	};
-
 	class UHACF_HeroComponent_Accessor : public UHACF_HeroComponent
 	{
 	public:
