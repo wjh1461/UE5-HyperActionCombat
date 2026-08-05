@@ -1,5 +1,6 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/GameplayAbility.h"
 #include "GameplayAbilitySpec.h"
 #include "CQTest.h"
 #include "Character/HACF_HeroComponent.h"
@@ -12,11 +13,17 @@
 #include "GameFramework/PlayerState.h"
 #include "AbilitySystem/Attributes/HACF_AttributeSet.h"
 #include "Character/HACF_PawnData.h"
-#include "Input/HACF_PawnTestActions.h"
 #include "Input/HACF_InputConfig.h"
 
 namespace HyperActionCombatFrameworkTests
 {
+	namespace AssetPaths
+	{
+		constexpr const TCHAR* CombatPawnData =
+			TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Data/CombatPawnData.CombatPawnData'");
+		constexpr const TCHAR* TestContentRoot = TEXT("/Game/Test/");
+	}
+
 	// 이 테스트는 #28 수직 슬라이스의 현재 통과 가능한 기반 계약을 보호한다.
 	// 실제 피해, 사망, 회피 Cooldown 검증은 대상 더미와 실제 Ability가 추가되는 다음 단계에서 확장한다.
 	TEST_CLASS(HACF_CombatVerticalSliceFoundationTest, "HyperActionCombat.Tests.CombatVerticalSlice.Foundation")
@@ -30,20 +37,30 @@ namespace HyperActionCombatFrameworkTests
 		UHACF_HeroComponent* HeroComponent = nullptr;
 		const UHACF_AttributeSet* CombatAttributes = nullptr;
 		const UInputAction* PrimaryInputAction = nullptr;
-		TUniquePtr<FHACFPawnTestActions> PawnActions;
 		FGameplayAbilitySpecHandle PrimaryAbilityHandle;
+		FString PrimaryAbilityClassPath;
+		FKey PrimaryInputKey;
+		FDelegateHandle PrimaryAbilityActivatedDelegateHandle;
+		bool bPrimaryAbilityActivated = false;
 
 		BEFORE_EACH()
 		{
-			Spawner = MakeUnique<FMapTestSpawner>(TEXT("/Game/Maps"), TEXT("L_CombatTest"));
+			Spawner = MakeUnique<FMapTestSpawner>(TEXT("/Game/Test/Maps"), TEXT("L_CQ_CombatVerticalSlice"));
 			Spawner->AddWaitUntilLoadedCommand(TestRunner);
 		}
 
 		AFTER_EACH()
 		{
-			if (PawnActions)
+			if (AbilitySystemComponent && PrimaryAbilityActivatedDelegateHandle.IsValid())
 			{
-				PawnActions->StopAllActions();
+				AbilitySystemComponent->AbilityActivatedCallbacks.Remove(PrimaryAbilityActivatedDelegateHandle);
+				PrimaryAbilityActivatedDelegateHandle.Reset();
+			}
+
+			if (PlayerController && PrimaryInputKey.IsValid())
+			{
+				PlayerController->InputKey(
+					FInputKeyEventArgs::CreateSimulated(PrimaryInputKey, IE_Released, 0.0f));
 			}
 		}
 
@@ -95,8 +112,7 @@ namespace HyperActionCombatFrameworkTests
 					ASSERT_THAT(IsTrue(CombatAttributes->GetHealth() > 0.f));
 
 					const UHACF_PawnData* PawnData = Cast<UHACF_PawnData>(StaticLoadObject(
-						UHACF_PawnData::StaticClass(), nullptr,
-						TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Data/CombatPawnData.CombatPawnData'")));
+						UHACF_PawnData::StaticClass(), nullptr, AssetPaths::CombatPawnData));
 					ASSERT_THAT(IsNotNull(PawnData));
 					ASSERT_THAT(IsNotNull(PawnData->InputConfig));
 
@@ -111,7 +127,6 @@ namespace HyperActionCombatFrameworkTests
 					const UEnhancedPlayerInput* EnhancedPlayerInput = Cast<UEnhancedPlayerInput>(PlayerController->PlayerInput);
 					ASSERT_THAT(IsNotNull(EnhancedPlayerInput));
 					
-					FKey PrimaryInputKey;
 					for (const FEnhancedActionKeyMapping& Mapping : EnhancedPlayerInput->GetEnhancedActionMappingsView())
 					{
 						if (Mapping.Action == PrimaryInputAction)
@@ -127,24 +142,35 @@ namespace HyperActionCombatFrameworkTests
 						if (AbilitySpec.GetDynamicSpecSourceTags().HasTagExact(PrimaryInputTag))
 						{
 							PrimaryAbilityHandle = AbilitySpec.Handle;
+							PrimaryAbilityClassPath = AbilitySpec.Ability
+								? AbilitySpec.Ability->GetClass()->GetPathName()
+								: FString();
 							break;
 						}
 					}
 					ASSERT_THAT(IsTrue(PrimaryAbilityHandle.IsValid()));
-					
-					PawnActions = MakeUnique<FHACFPawnTestActions>(PlayerPawn);
+					ASSERT_THAT(IsFalse(PrimaryAbilityClassPath.IsEmpty()));
+					ASSERT_THAT(IsFalse(PrimaryAbilityClassPath.StartsWith(AssetPaths::TestContentRoot)));
+
+					PrimaryAbilityActivatedDelegateHandle = AbilitySystemComponent->AbilityActivatedCallbacks.AddLambda(
+						[this](UGameplayAbility* ActivatedAbility)
+						{
+							if (ActivatedAbility &&
+								ActivatedAbility->GetCurrentAbilitySpecHandle() == PrimaryAbilityHandle)
+							{
+								bPrimaryAbilityActivated = true;
+							}
+						});
 				})
 				.Then([this]() {
-					PawnActions->PressAbilityAction(PrimaryInputAction);
+					PlayerController->InputKey(
+						FInputKeyEventArgs::CreateSimulated(PrimaryInputKey, IE_Pressed, 1.0f));
 				})
 				.Until([this]() {
-					const FGameplayAbilitySpec* PrimaryAbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(PrimaryAbilityHandle);
-					return PrimaryAbilitySpec && PrimaryAbilitySpec->InputPressed;
+					return bPrimaryAbilityActivated;
 				})
 				.Then([this]() {
-					const FGameplayAbilitySpec* PrimaryAbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(PrimaryAbilityHandle);
-					ASSERT_THAT(IsNotNull(PrimaryAbilitySpec));
-					ASSERT_THAT(IsTrue(PrimaryAbilitySpec->InputPressed));
+					ASSERT_THAT(IsTrue(bPrimaryAbilityActivated));
 				});
 		}
 	};

@@ -69,7 +69,12 @@ void UHACF_HeroComponent::BeginPlay()
 void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnregisterInitStateFeature();
-	GrantedAbilitySetHandles.TakeFromAbilitySystem(CombatComponent->GetAbilitySystemComponent()());
+
+	if (UAbilitySystemComponent* GrantedASC = GrantedAbilitySystemComponent.Get())
+	{
+		GrantedAbilitySetHandles.TakeFromAbilitySystem(GrantedASC);
+	}
+	GrantedAbilitySystemComponent.Reset();
 	CombatComponent = nullptr;
 	
 	Super::EndPlay(EndPlayReason);
@@ -154,6 +159,8 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 		// AbilitySet 부여는 서버만 수행한다.
 		if (ASC->IsOwnerActorAuthoritative())
 		{
+			GrantedAbilitySystemComponent = ASC;
+
 			for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
 			{
 				if (AbilitySet)
@@ -289,5 +296,4 @@ void UHACF_HeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 	
 	CombatComponent->AbilityInputTagReleased(InputTag);
 }
-
 

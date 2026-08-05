@@ -13,6 +13,7 @@
 #include "HACF_HeroComponent.generated.h"
 
 class UInputAction;
+class UAbilitySystemComponent;
 class UHACF_PawnData;
 class UHACF_CombatComponent;
 class UHACF_InputConfig;
@@ -74,6 +75,7 @@ protected:
 	TObjectPtr<UHACF_CombatComponent> CombatComponent;
 	
 	FHACF_AbilitySet_GrantedHandles GrantedAbilitySetHandles;
+	TWeakObjectPtr<UAbilitySystemComponent> GrantedAbilitySystemComponent;
 };
 
 template<class UserClass, typename FuncType>
@@ -87,4 +89,3 @@ void UHACF_HeroComponent::BindNativeAction(UEnhancedInputComponent* EnhancedIC, 
 		EnhancedIC->BindAction(Action, TriggerEvent, Object, Func);
 	}
 }
-
