@@ -48,6 +48,7 @@ public:
 	// PlayerController의 PostProcessInput에서 호출
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
 	
+	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 
 protected:
