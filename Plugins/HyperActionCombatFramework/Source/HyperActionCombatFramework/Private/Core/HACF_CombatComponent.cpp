@@ -62,22 +62,37 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 	OutASC = nullptr;
 	OutOwnerActor = nullptr;
 
-	APlayerState* PlayerState = GetPlayerState<APlayerState>();
-	if (!PlayerState)
+	APawn* Pawn = GetPawn<APawn>();
+	if (!Pawn)
 	{
 		return false;
 	}
 	
-	const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(PlayerState);
-	if (!AbilitySystemProvider)
+	// PlayerState에 AbilitySystemComponent가 있는 경우. 플레이어용
+	if (APlayerState* PlayerState = GetPlayerState<APlayerState>())
 	{
-		return false;
+		if (const IAbilitySystemInterface* Provider = Cast<IAbilitySystemInterface>(PlayerState))
+		{
+			OutASC = Provider->GetAbilitySystemComponent();
+			OutOwnerActor = PlayerState;
+			
+			return IsValid(OutASC);
+		}
 	}
 	
-	OutASC = AbilitySystemProvider->GetAbilitySystemComponent();
-	OutOwnerActor = PlayerState;
+	// Pawn에 AbilitySystemComponent가 있는 경우(PlayerState 대신). NPC, 적
+	if (const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(Pawn))
+	{
+		if (UAbilitySystemComponent* PawnASC = AbilitySystemProvider->GetAbilitySystemComponent())
+		{
+			OutASC = PawnASC;
+			OutOwnerActor = Pawn;
+			
+			return IsValid(OutASC);
+		}
+	}
 	
-	return IsValid(OutASC);
+	return false;
 }
 
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)

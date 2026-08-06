@@ -103,11 +103,10 @@ bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Man
 			return false;
 		}
 
-		// Simulated Proxy와 원격 서버 Pawn은 입력 컴포넌트를 기다리지 않는다.
-		if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+		if (const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController()))
 		{
-			const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
-			if (!PlayerController || !PlayerController->GetLocalPlayer() || !Pawn->InputComponent)
+			if (PlayerController->IsLocalController() && 
+				(!PlayerController->GetLocalPlayer() || !Pawn->InputComponent))
 			{
 				return false;
 			}
@@ -172,10 +171,13 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 		
 		if (APawn* Pawn = GetPawn<APawn>())
 		{
-			if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+			if (const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController()))
 			{
-				check(Pawn->InputComponent);
-				InitializePlayerInput(Pawn->InputComponent);
+				if (PlayerController->IsLocalController())
+				{
+					check(Pawn->InputComponent);
+					InitializePlayerInput(Pawn->InputComponent);
+				}
 			}
 		}
 	}
