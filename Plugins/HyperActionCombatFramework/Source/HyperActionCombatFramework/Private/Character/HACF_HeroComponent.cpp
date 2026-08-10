@@ -69,6 +69,12 @@ void UHACF_HeroComponent::BeginPlay()
 void UHACF_HeroComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnregisterInitStateFeature();
+
+	if (UAbilitySystemComponent* GrantedASC = GrantedAbilitySystemComponent.Get())
+	{
+		GrantedAbilitySetHandles.TakeFromAbilitySystem(GrantedASC);
+	}
+	GrantedAbilitySystemComponent.Reset();
 	CombatComponent = nullptr;
 	
 	Super::EndPlay(EndPlayReason);
@@ -97,11 +103,10 @@ bool UHACF_HeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Man
 			return false;
 		}
 
-		// Simulated Proxy와 원격 서버 Pawn은 입력 컴포넌트를 기다리지 않는다.
-		if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+		if (const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController()))
 		{
-			const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
-			if (!PlayerController || !PlayerController->GetLocalPlayer() || !Pawn->InputComponent)
+			if (PlayerController->IsLocalController() && 
+				(!PlayerController->GetLocalPlayer() || !Pawn->InputComponent))
 			{
 				return false;
 			}
@@ -153,6 +158,8 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 		// AbilitySet 부여는 서버만 수행한다.
 		if (ASC->IsOwnerActorAuthoritative())
 		{
+			GrantedAbilitySystemComponent = ASC;
+
 			for (const UHACF_AbilitySet* AbilitySet : PawnData->AbilitySets)
 			{
 				if (AbilitySet)
@@ -164,10 +171,13 @@ void UHACF_HeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* 
 		
 		if (APawn* Pawn = GetPawn<APawn>())
 		{
-			if (Pawn->IsLocallyControlled() && !Pawn->IsBotControlled())
+			if (const APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController()))
 			{
-				check(Pawn->InputComponent);
-				InitializePlayerInput(Pawn->InputComponent);
+				if (PlayerController->IsLocalController())
+				{
+					check(Pawn->InputComponent);
+					InitializePlayerInput(Pawn->InputComponent);
+				}
 			}
 		}
 	}
@@ -288,5 +298,4 @@ void UHACF_HeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 	
 	CombatComponent->AbilityInputTagReleased(InputTag);
 }
-
 

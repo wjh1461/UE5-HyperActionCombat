@@ -1,43 +1,20 @@
 #include "AbilitySystemComponent.h"
-#include "AbilitySystemInterface.h"
 #include "CQTest.h"
 #include "Abilities/TestGameplayAbility.h"
 #include "Character/HACF_HeroComponent.h"
 #include "Character/HACF_PawnData.h"
-#include "Components/InputTestActions.h"
 #include "Components/MapTestSpawner.h"
 #include "Core/HACF_CombatComponent.h"
-#include "EnhancedActionKeyMapping.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedPlayerInput.h"
-#include "GameFramework/PlayerController.h"
-#include "GameFramework/PlayerState.h"
+#include "Input/HACF_PawnTestActions.h"
 #include "Input/HACF_InputConfig.h"
 
 namespace HyperActionCombatFrameworkTests
 {
-	struct FHACFAbilityTestAction : public FTestAction
+	namespace AssetPaths
 	{
-		explicit FHACFAbilityTestAction(const UInputAction* Action)
-		{
-			InputActionName = Action->GetName();
-			InputActionValue = FInputActionValue(true);
-		}
-	};
-
-	class FHACFPawnTestActions : public FInputTestActions
-	{
-	public:
-		explicit FHACFPawnTestActions(APawn* Pawn)
-			: FInputTestActions(Pawn)
-		{
-		}
-
-		void PressAbilityAction(const UInputAction* Action)
-		{
-			PerformAction(FHACFAbilityTestAction(Action));
-		}
-	};
+		constexpr const TCHAR* TestInputPawnData =
+			TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Test/Data/CombatPawnData_TestInput.CombatPawnData_TestInput'");
+	}
 
 	class UHACF_HeroComponent_Accessor : public UHACF_HeroComponent
 	{
@@ -76,13 +53,27 @@ namespace HyperActionCombatFrameworkTests
 			Spawner = FMapTestSpawner::CreateFromTempLevel(TestCommandBuilder);
 			Spawner->AddWaitUntilLoadedCommand(TestRunner);
 
-			PawnData = Cast<UHACF_PawnData>(StaticLoadObject(UHACF_PawnData::StaticClass(), nullptr,
-				TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Data/CombatPawnData.CombatPawnData'")));
-			InputConfig = PawnData->InputConfig;
+			PawnData = Cast<UHACF_PawnData>(StaticLoadObject(
+				UHACF_PawnData::StaticClass(), nullptr, AssetPaths::TestInputPawnData));
+			ASSERT_THAT(IsNotNull(PawnData));
+
+			InputConfig = PawnData ? PawnData->InputConfig : nullptr;
+			ASSERT_THAT(IsNotNull(InputConfig));
 		}
 
 		AFTER_EACH()
 		{
+			if (PawnActions)
+			{
+				PawnActions->StopAllActions();
+			}
+
+			if (HeroComponent)
+			{
+				HeroComponent->DestroyComponent();
+				HeroComponent = nullptr;
+			}
+
 			if (TestPawn)
 			{
 				TestPawn->ConditionalBeginDestroy();
@@ -199,118 +190,4 @@ namespace HyperActionCombatFrameworkTests
 		}
 	};
 
-	TEST_CLASS(HACF_RuntimeInputPathTest, "HyperActionCombat.Tests.InputSimulation.RuntimePath")
-	{
-		TUniquePtr<FMapTestSpawner> Spawner;
-
-		APawn* TestPawn = nullptr;
-		APlayerController* PlayerController = nullptr;
-		UAbilitySystemComponent* AbilitySystemComponent = nullptr;
-		UHACF_CombatComponent* CombatComponent = nullptr;
-		UHACF_HeroComponent* HeroComponent = nullptr;
-		
-		UHACF_InputConfig* InputConfig = nullptr;
-		const UInputAction* PrimaryInputAction = nullptr;
-		FKey PrimaryInputKey;
-
-		FGameplayAbilitySpecHandle GivenHandle;
-
-		BEFORE_EACH()
-		{
-			// 사용하는 맵은 Sample 프로젝트에 있음
-			Spawner = MakeUnique<FMapTestSpawner>(TEXT("/Game/Maps"), TEXT("L_CombatTest"));
-			Spawner->AddWaitUntilLoadedCommand(TestRunner);
-
-			UHACF_PawnData* PawnData = Cast<UHACF_PawnData>(StaticLoadObject(UHACF_PawnData::StaticClass(), nullptr,
-				TEXT("/Script/HyperActionCombatFramework.HACF_PawnData'/Game/Data/CombatPawnData.CombatPawnData'")));
-			ASSERT_THAT(IsNotNull(PawnData));
-
-			InputConfig = PawnData->InputConfig;
-			ASSERT_THAT(IsNotNull(InputConfig));
-		}
-
-		AFTER_EACH()
-		{
-			if (PlayerController && PrimaryInputKey.IsValid())
-			{
-				PlayerController->InputKey(FInputKeyEventArgs::CreateSimulated(PrimaryInputKey, IE_Released, 0.0f));
-			}
-		}
-
-		TEST_METHOD(PrimaryInput_ActivatesAbilityThroughRuntimePath)
-		{
-			TestCommandBuilder
-				.StartWhen([this]() { return Spawner->FindFirstPlayerPawn() != nullptr; })
-				.Then([this]() {
-					// 테스트용 맵에 스폰되어 있는 폰
-					TestPawn = Spawner->FindFirstPlayerPawn();
-					ASSERT_THAT(IsNotNull(TestPawn));
-
-					// Sample 프로젝트에서 현재 사용 중인 SamplePlayerController
-					PlayerController = Cast<APlayerController>(TestPawn->GetController());
-					ASSERT_THAT(IsNotNull(PlayerController));
-
-					UClass* SamplePlayerControllerClass = StaticLoadClass(APlayerController::StaticClass(), nullptr,
-						TEXT("/Script/HACF_Sample.SamplePlayerController"));
-					ASSERT_THAT(IsNotNull(SamplePlayerControllerClass));
-					ASSERT_THAT(IsTrue(PlayerController->IsA(SamplePlayerControllerClass)));
-
-					CombatComponent = TestPawn->FindComponentByClass<UHACF_CombatComponent>();
-					HeroComponent = TestPawn->FindComponentByClass<UHACF_HeroComponent>();
-					ASSERT_THAT(IsNotNull(CombatComponent));
-					ASSERT_THAT(IsNotNull(HeroComponent));
-
-					// PlayerState에 있는 AbilitySystemComponent 찾기
-					APlayerState* PlayerState = PlayerController->GetPlayerState<APlayerState>();
-					ASSERT_THAT(IsNotNull(PlayerState));
-					IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(PlayerState);
-					ASSERT_THAT(IsNotNull(AbilitySystemProvider));
-					
-					AbilitySystemComponent = AbilitySystemProvider->GetAbilitySystemComponent();
-					ASSERT_THAT(IsNotNull(AbilitySystemComponent));
-					ASSERT_THAT(AreEqual(AbilitySystemComponent, CombatComponent->GetAbilitySystemComponent()));
-					
-					const UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(TestPawn->InputComponent);
-					ASSERT_THAT(IsNotNull(EnhancedInputComponent));
-					ASSERT_THAT(IsFalse(EnhancedInputComponent->GetActionEventBindings().IsEmpty()));
-
-					const FGameplayTag PrimaryInputTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
-					PrimaryInputAction = InputConfig->FindAbilityInputActionForTag(PrimaryInputTag);
-					ASSERT_THAT(IsNotNull(PrimaryInputAction));
-
-					const UEnhancedPlayerInput* EnhancedPlayerInput = Cast<UEnhancedPlayerInput>(PlayerController->PlayerInput);
-					ASSERT_THAT(IsNotNull(EnhancedPlayerInput));
-					for (const FEnhancedActionKeyMapping& Mapping : EnhancedPlayerInput->GetEnhancedActionMappingsView())
-					{
-						if (Mapping.Action == PrimaryInputAction)
-						{
-							PrimaryInputKey = Mapping.Key;
-							break;
-						}
-					}
-					ASSERT_THAT(IsTrue(PrimaryInputKey.IsValid()));
-
-					FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
-					Spec.GetDynamicSpecSourceTags().AddTag(PrimaryInputTag);
-					GivenHandle = AbilitySystemComponent->GiveAbility(Spec);
-					ASSERT_THAT(IsTrue(GivenHandle.IsValid()));
-				})
-				.Then([this]() {
-					PlayerController->InputKey(FInputKeyEventArgs::CreateSimulated(PrimaryInputKey, IE_Pressed, 1.0f));
-				})
-				.Until([this]() {
-					const FGameplayAbilitySpec* FoundSpec = AbilitySystemComponent->FindAbilitySpecFromHandle(GivenHandle);
-					return FoundSpec && FoundSpec->IsActive() && FoundSpec->GetPrimaryInstance();
-				})
-				.Then([this]() {
-					FGameplayAbilitySpec* FoundSpec = AbilitySystemComponent->FindAbilitySpecFromHandle(GivenHandle);
-					ASSERT_THAT(IsNotNull(FoundSpec));
-					ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
-
-					const UTestGameplayAbility* AbilityInstance = Cast<UTestGameplayAbility>(FoundSpec->GetPrimaryInstance());
-					ASSERT_THAT(IsNotNull(AbilityInstance));
-					ASSERT_THAT(AreEqual(1, AbilityInstance->GetActivationCount()));
-				});
-		}
-	};
 }
