@@ -204,9 +204,48 @@ void UHACF_HeroComponent::OnActorInitStateChanged(const FActorInitStateChangedPa
 	}
 }
 
+void UHACF_HeroComponent::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult)
+{
+	FCharacterDefaultInputs& Inputs = InputCmdResult.InputCollection.FindOrAddMutableDataByType<FCharacterDefaultInputs>();
+	
+	const APawn* Pawn = GetPawn<APawn>();
+	const AController* Controller = Pawn ? Pawn->GetController() : nullptr;
+	
+	FRotator ControllerRotation = Controller ? Controller->GetControlRotation() 
+		: Pawn ? Pawn->GetActorRotation() : FRotator::ZeroRotator;
+	
+	const FRotator YawRotation(0.0, ControllerRotation.Yaw, 0.0);
+
+	const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+	const FVector MoveDirection = (Forward * CachedMoveInput.Y + Right * CachedMoveInput.X).GetClampedToMaxSize(1.0);
+
+	Inputs.SetMoveInput(EMoveInputType::DirectionalIntent,MoveDirection);
+	Inputs.ControlRotation = ControllerRotation;
+	Inputs.OrientationIntent = MoveDirection.IsNearlyZero() ? FVector::ZeroVector : MoveDirection;
+	Inputs.bIsJumpJustPressed = bJumpJustPressed;
+	Inputs.bIsJumpPressed = bJumpPressed;
+}
+
 void UHACF_HeroComponent::HandlePlayerStateChanged()
 {
 	CheckDefaultInitialization();
+}
+
+void UHACF_HeroComponent::SubmitMoveInput(const FVector2D& MoveInput)
+{
+	CachedMoveInput = MoveInput.GetClampedToMaxSize(1.0);
+}
+
+void UHACF_HeroComponent::SubmitJumpInput(bool bPressed)
+{
+	if (bPressed && !bJumpPressed)
+	{
+		bJumpJustPressed = true;
+	}
+
+	bJumpPressed = bPressed;
 }
 
 void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComponent)
@@ -275,16 +314,6 @@ void UHACF_HeroComponent::InitializePlayerInput(UInputComponent* PlayerInputComp
 	}
 }
 
-void UHACF_HeroComponent::Input_Move(const FInputActionValue& InputActionValue)
-{
-	//TODO: 캐릭터 이동 처리
-}
-
-void UHACF_HeroComponent::Input_Look(const FInputActionValue& InputActionValue)
-{
-	//TODO: 카메라 회전 처리
-}
-
 void UHACF_HeroComponent::Input_AbilityInputTagPressed(FGameplayTag InputTag)
 {
 	check(CombatComponent);
@@ -299,3 +328,12 @@ void UHACF_HeroComponent::Input_AbilityInputTagReleased(FGameplayTag InputTag)
 	CombatComponent->AbilityInputTagReleased(InputTag);
 }
 
+const UInputAction* UHACF_HeroComponent::FindNativeInputAction(const FGameplayTag& InputTag) const
+{
+	if (!PawnData || !PawnData->InputConfig)
+	{
+		return nullptr;
+	}
+
+	return PawnData->InputConfig->FindNativeInputActionForTag(InputTag, true);
+}
