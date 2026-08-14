@@ -210,19 +210,19 @@ void UHACF_HeroComponent::ProduceInput_Implementation(int32 SimTimeMs, FMoverInp
 	
 	const APawn* Pawn = GetPawn<APawn>();
 	const AController* Controller = Pawn ? Pawn->GetController() : nullptr;
-	
-	FRotator ControllerRotation = Controller ? Controller->GetControlRotation() 
+
+	const FRotator ControlRotation = Controller ? Controller->GetControlRotation() 
 		: Pawn ? Pawn->GetActorRotation() : FRotator::ZeroRotator;
 	
-	const FRotator YawRotation(0.0, ControllerRotation.Yaw, 0.0);
+	const FRotator YawRotation(0.0, ControlRotation.Yaw, 0.0);
 
 	const FVector Forward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	const FVector Right = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 	const FVector MoveDirection = (Forward * CachedMoveInput.Y + Right * CachedMoveInput.X).GetClampedToMaxSize(1.0);
 
-	Inputs.SetMoveInput(EMoveInputType::DirectionalIntent,MoveDirection);
-	Inputs.ControlRotation = ControllerRotation;
+	Inputs.SetMoveInput(EMoveInputType::DirectionalIntent, MoveDirection);
+	Inputs.ControlRotation = ControlRotation;
 	Inputs.OrientationIntent = MoveDirection.IsNearlyZero() ? FVector::ZeroVector : MoveDirection;
 	Inputs.bIsJumpJustPressed = bJumpJustPressed;
 	Inputs.bIsJumpPressed = bJumpPressed;

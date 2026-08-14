@@ -18,6 +18,12 @@ void ASampleCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ASampleCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	
 	HeroComponent = FindComponentByClass<UHACF_HeroComponent>();
 
 	ensureMsgf(HeroComponent, TEXT("%s requires a HACF HeroComponent."), *GetNameSafe(this));
@@ -36,12 +42,12 @@ void ASampleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-
-	// BeginPlay 보다 먼저 실행되어서 HeroComponent가 nullptr. 나중에 수정
+	
 	if (HeroComponent)
 	{
 		const UInputAction* MoveAction = HeroComponent->FindNativeInputAction(InputMoveTag);
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &ThisClass::Input_MoveCompleted);
 		
 		const UInputAction* LookAction = HeroComponent->FindNativeInputAction(InputLookTag);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Input_Look);
@@ -53,6 +59,14 @@ void ASampleCharacter::Input_Move(const FInputActionValue& InputActionValue)
 	if (HeroComponent)
 	{
 		HeroComponent->SubmitMoveInput(InputActionValue.Get<FVector2D>());
+	}
+}
+
+void ASampleCharacter::Input_MoveCompleted(const FInputActionValue& InputActionValue)
+{
+	if (HeroComponent)
+	{
+		HeroComponent->SubmitMoveInput(FVector2D::ZeroVector);
 	}
 }
 

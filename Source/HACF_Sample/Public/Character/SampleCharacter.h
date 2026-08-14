@@ -22,9 +22,12 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	virtual void PostInitializeComponents() override;
 
 	// 이동 및 카메라 처리
 	void Input_Move(const FInputActionValue& InputActionValue);
+	void Input_MoveCompleted(const FInputActionValue& InputActionValue);
 	void Input_Look(const FInputActionValue& InputActionValue);
 	
 	//TODO: 점프는 나중에 구현
