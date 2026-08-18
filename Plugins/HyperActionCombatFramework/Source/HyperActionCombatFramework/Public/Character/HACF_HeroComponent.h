@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "GameplayTagContainer.h"
 #include "InputActionValue.h"
+#include "MoverSimulationTypes.h"
 #include "AbilitySystem/HACF_AbilitySet.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
@@ -24,6 +25,7 @@ struct FInputMappingContextAndPriority;
  */
 UCLASS(ClassGroup=(HyperActionCombatFramework), meta=(BlueprintSpawnableComponent))
 class HYPERACTIONCOMBATFRAMEWORK_API UHACF_HeroComponent : public UPawnComponent, public IGameFrameworkInitStateInterface
+	, public IMoverInputProducerInterface
 {
 	GENERATED_BODY()
 
@@ -44,7 +46,17 @@ public:
 	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	//~End
 	
+	//~Begin IMoverInputProducerInterface
+	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
+	//~End
+	
 	void HandlePlayerStateChanged();
+	
+	// 이동 입력 처리를 위한 제출용 메서드
+	void SubmitMoveInput(const FVector2D& MoveInput);
+	void SubmitJumpInput(bool bPressed);
+	
+	const UInputAction* FindNativeInputAction(const FGameplayTag& InputTag) const;
 
 protected:
 	// Called when the game starts
@@ -56,13 +68,10 @@ protected:
 	// 바인딩 처리
 	void InitializePlayerInput(UInputComponent* PlayerInputComponent);
 	
-	// 바인딩 메서드
-	void Input_Move(const FInputActionValue& InputActionValue);
-	void Input_Look(const FInputActionValue& InputActionValue);
-	
 	void Input_AbilityInputTagPressed(FGameplayTag InputTag);
 	void Input_AbilityInputTagReleased(FGameplayTag InputTag);
 	
+	// 해당 메서드는 사용하지 않음
 	template<class UserClass, typename FuncType>
 	void BindNativeAction(UEnhancedInputComponent* EnhancedIC, const UHACF_InputConfig* InputConfig, 
 		const FGameplayTag& InputTag, ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound);
@@ -76,6 +85,12 @@ protected:
 	
 	FHACF_AbilitySet_GrantedHandles GrantedAbilitySetHandles;
 	TWeakObjectPtr<UAbilitySystemComponent> GrantedAbilitySystemComponent;
+	
+private:
+	FVector2D CachedMoveInput = FVector2D::ZeroVector;
+
+	bool bJumpPressed = false;
+	bool bJumpJustPressed = false;
 };
 
 template<class UserClass, typename FuncType>
