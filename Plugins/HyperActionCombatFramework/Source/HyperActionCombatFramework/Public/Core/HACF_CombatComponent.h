@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "CombatInput/HACF_InputBuffer.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
 #include "HACF_CombatComponent.generated.h"
@@ -48,6 +49,8 @@ public:
 	// PlayerController의 PostProcessInput에서 호출
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
 	
+	void RecordBufferedInput(const FGameplayTag& InputTag);
+	
 	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 
@@ -68,6 +71,11 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
+	
+	FHACF_InputBuffer InputBuffer;
+	
+	UPROPERTY(EditDefaultsOnly)
+	float InputBufferDuration = 0.2f;
 	
 private:
 	UPROPERTY()

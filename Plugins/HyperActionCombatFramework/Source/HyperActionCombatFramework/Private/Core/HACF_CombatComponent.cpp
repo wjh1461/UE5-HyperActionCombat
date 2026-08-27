@@ -300,6 +300,8 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 	
 	if (InputTag.IsValid())
 	{
+		RecordBufferedInput(InputTag);
+		
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
 			// 배열에 저장
@@ -415,5 +417,17 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
+}
+
+void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
+{
+	const double CurrentTime = GetWorld()->GetTimeSeconds();
+	
+	FHACF_BufferedInput BufferedInput;
+	BufferedInput.InputTag = InputTag;
+	BufferedInput.InputTime = CurrentTime;
+	BufferedInput.ExpirationTime = CurrentTime + InputBufferDuration;
+	
+	InputBuffer.Push(BufferedInput);
 }
 
