@@ -6,11 +6,11 @@
 #include "HACF_InputBufferTypes.h"
 
 /**
- * 
+ * 입력 버퍼 BufferedInput을 관리하기 위한 컨테이너.
  */
-struct FHACF_InputBuffer
+struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_InputBuffer
 {
-	void Push(const FHACF_BufferedInput& Input);
+	uint32 Push(const FHACF_BufferedInput& Input);
 	
 	const FHACF_BufferedInput* Find() const;
 	
@@ -26,4 +26,5 @@ struct FHACF_InputBuffer
 
 private:
 	TArray<FHACF_BufferedInput> Inputs;
+	uint32 NextSequence = 1;
 };

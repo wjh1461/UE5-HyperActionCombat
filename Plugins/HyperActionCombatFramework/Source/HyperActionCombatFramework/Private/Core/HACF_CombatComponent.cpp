@@ -288,6 +288,7 @@ void UHACF_CombatComponent::UninitializeFromASC()
 		}
 	}
 	
+	InputBuffer.Clear();
 	ASC = nullptr;
 }
 
@@ -428,6 +429,6 @@ void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 	BufferedInput.InputTime = CurrentTime;
 	BufferedInput.ExpirationTime = CurrentTime + InputBufferDuration;
 	
+	InputBuffer.RemoveExpired(CurrentTime);
 	InputBuffer.Push(BufferedInput);
 }
-

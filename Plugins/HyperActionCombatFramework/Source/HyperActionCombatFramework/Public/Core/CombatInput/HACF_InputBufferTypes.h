@@ -13,6 +13,8 @@ USTRUCT(BlueprintType)
 struct FHACF_BufferedInput
 {
 	GENERATED_BODY()
+
+	uint32 Sequence = 0;
 	
 	UPROPERTY(BlueprintReadOnly)
 	FGameplayTag InputTag;
