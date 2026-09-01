@@ -7,6 +7,7 @@
 #include "CombatInput/HACF_InputBuffer.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
+#include "CombatInput/HACF_ActionWindowTypes.h"
 #include "HACF_CombatComponent.generated.h"
 
 struct FGameplayAbilitySpec;
@@ -51,6 +52,10 @@ public:
 	
 	void RecordBufferedInput(const FGameplayTag& InputTag);
 	
+	// 입력 버퍼 윈도우 처리
+	uint32 OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source);
+	bool CloseActionWindow(const UObject* Source);
+	
 	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 
@@ -63,6 +68,10 @@ protected:
 	
 	virtual bool ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const;
 	
+	// 입력 버퍼 소비를 위한 메서드
+	bool TryConsumeBufferedInput();
+	const FHACF_ActionWindow* FindHighestPriorityActionWindow() const;
+	
 	// ASC AbilityInput 이벤트 전달
 	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
 	void DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec);
@@ -73,6 +82,9 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
 	
 	FHACF_InputBuffer InputBuffer;
+	
+	FHACF_ActionWindowContainer ActionWindows;
+	TMap<FObjectKey, TArray<uint32>> SourceWindowIdStacks;
 	
 	UPROPERTY(EditDefaultsOnly)
 	float InputBufferDuration = 0.2f;

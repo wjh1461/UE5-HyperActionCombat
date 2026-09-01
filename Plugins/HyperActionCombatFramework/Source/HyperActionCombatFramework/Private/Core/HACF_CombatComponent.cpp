@@ -95,6 +95,16 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 	return false;
 }
 
+bool UHACF_CombatComponent::TryConsumeBufferedInput()
+{
+	return false;
+}
+
+const FHACF_ActionWindow* UHACF_CombatComponent::FindHighestPriorityActionWindow() const
+{
+	return nullptr;
+}
+
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
 {
 	ASC->AbilitySpecInputPressed(AbilitySpec);
@@ -431,4 +441,65 @@ void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 	
 	InputBuffer.RemoveExpired(CurrentTime);
 	InputBuffer.Push(BufferedInput);
+	
+	TryConsumeBufferedInput();
+}
+
+uint32 UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source)
+{
+	if (!Source)
+	{
+		return 0;
+	}
+
+	const uint32 WindowId = ActionWindows.Open(Definition);
+	SourceWindowIdStacks.FindOrAdd(FObjectKey(Source)).Add(WindowId);
+
+	TryConsumeBufferedInput();
+
+	return WindowId;
+}
+
+bool UHACF_CombatComponent::CloseActionWindow(const UObject* Source)
+{
+	if (!IsValid(Source))
+	{
+		return false;
+	}
+
+	const FObjectKey SourceKey(Source);
+	TArray<uint32>* WindowIdStack = SourceWindowIdStacks.Find(SourceKey);
+
+	if (!WindowIdStack)
+	{
+		return false;
+	}
+
+	bool bClosed = false;
+
+	// 이미 다른 경로에서 닫힌 ID가 있을 수 있으므로,
+	// 실제 활성 Window를 찾을 때까지 스택을 정리한다.
+	while (!WindowIdStack->IsEmpty())
+	{
+		const uint32 WindowId = WindowIdStack->Pop(EAllowShrinking::No);
+		if (ActionWindows.Close(WindowId))
+		{
+			bClosed = true;
+			break;
+		}
+	}
+
+	if (WindowIdStack->IsEmpty())
+	{
+		SourceWindowIdStacks.Remove(SourceKey);
+	}
+
+	if (bClosed)
+	{
+		// 높은 우선순위 Window가 닫히면서 아래 Window가 드러났다면
+		// 남아 있는 버퍼 입력을 처리한다.
+		TryConsumeBufferedInput();
+	}
+
+	return bClosed;
 }
