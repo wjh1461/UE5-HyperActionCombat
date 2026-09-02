@@ -50,10 +50,10 @@ public:
 	// PlayerController의 PostProcessInput에서 호출
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
 	
+	// 입력 버퍼 윈도우 처리
 	void RecordBufferedInput(const FGameplayTag& InputTag);
 	
-	// 입력 버퍼 윈도우 처리
-	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source = nullptr);
+	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler);
 	bool CloseActionWindow(FHACF_ActionWindowHandle Handle);
 	int32 CloseAllActionWindowsFromSource(const UObject* Source);
 	bool IsActionWindowActive(FHACF_ActionWindowHandle Handle) const;
@@ -74,17 +74,21 @@ protected:
 	// 입력 버퍼 소비를 위한 메서드
 	bool TryConsumeBufferedInput();
 	
-	bool TryDispatchActionWindowInput(const FHACF_ActionWindow& ActionWindow, const FHACF_BufferedInput& BufferedInput);
+	// 입력 버퍼 핸들러 처리
+	bool TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext);
 	
 	// ASC AbilityInput 이벤트 전달
 	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
 	void DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec);
 	
+	// 물리적/논리적으로 현재 눌린 입력 태그
+	TSet<FGameplayTag> PressedInputTags;
+	
 	// 입력 처리용 버퍼
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
-	
+
 	FHACF_InputBuffer InputBuffer;
 	
 	FHACF_ActionWindowContainer ActionWindows;
@@ -94,8 +98,7 @@ protected:
 	// Handle로 닫을 때 Source 인덱스도 정리하기 위한 역방향 조회
 	TMap<FHACF_ActionWindowHandle, FObjectKey> ActionWindowSources;
 	
-	TMap<FObjectKey, FHACF_ActionWindowInputHandler> ActionWindowInputHandlers;
-	
+	TMap<FHACF_ActionWindowHandle, FHACF_ActionWindowInputHandler> ActionWindowInputHandlers;
 	
 	UPROPERTY(EditDefaultsOnly)
 	float InputBufferDuration = 0.2f;

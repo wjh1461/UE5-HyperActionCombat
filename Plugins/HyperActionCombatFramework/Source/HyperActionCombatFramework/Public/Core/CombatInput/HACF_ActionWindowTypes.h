@@ -9,7 +9,7 @@
 struct FHACF_BufferedInput;
 struct FHACF_ActionWindowHandle;
 
-DECLARE_DELEGATE_RetVal_ThreeParams(bool, FHACF_ActionWindowInputHandler, FHACF_ActionWindowHandle, const FHACF_ActionWindow&, const FHACF_BufferedInput&);
+DECLARE_DELEGATE_RetVal_OneParam(bool, FHACF_ActionWindowInputHandler, const FHACF_ActionWindowInputContext&);
 
 USTRUCT(BlueprintType)
 struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowHandle
@@ -74,7 +74,7 @@ struct FHACF_ActionWindow
 	FGameplayTagContainer AcceptedInputTags;
 	
 	UPROPERTY(BlueprintReadOnly)
-	int32 Priority;
+	int32 Priority = 0;
 	
 	UPROPERTY(BlueprintReadOnly)
 	FHACF_ActionWindowHandle Handle;
@@ -123,4 +123,25 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowContainer
 
 private:
 	TArray<FHACF_ActionWindow> Windows;
+};
+
+/**
+ * 델리게이트 전용 Context 구조체
+ */
+USTRUCT(BlueprintType)
+struct FHACF_ActionWindowInputContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	FHACF_ActionWindowHandle WindowHandle;
+
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag WindowTag;
+
+	UPROPERTY(BlueprintReadOnly)
+	FGameplayTag InputTag;
+
+	UPROPERTY(BlueprintReadOnly)
+	double InputTime = 0.0;
 };

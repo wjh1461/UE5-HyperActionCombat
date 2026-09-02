@@ -125,35 +125,31 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 	const FHACF_BufferedInput BufferedInput = *FoundInput;
 	const FHACF_ActionWindowHandle WindowHandle = FoundWindow->Handle;
 
-	// const bool bAccepted  = TryDispatchActionWindowInput(*FoundWindow, BufferedInput);
-	// if (!bAccepted )
-	// {
-	// 	return false;
-	// }
+	FHACF_ActionWindowInputContext ActionWindowInputContext;
+	ActionWindowInputContext.WindowHandle = WindowHandle;
+	ActionWindowInputContext.WindowTag = FoundWindow->WindowTag;
+	ActionWindowInputContext.InputTag = BufferedInput.InputTag;
+	ActionWindowInputContext.InputTime = BufferedInput.InputTime;
+	
+	const bool bAccepted  = TryDispatchActionWindowInput(ActionWindowInputContext);
+	if (!bAccepted )
+	{
+		return false;
+	}
 
 	return InputBuffer.Consume(BufferedInput.Sequence);
 }
 
-bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindow& ActionWindow, const FHACF_BufferedInput& BufferedInput)
+bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext)
 {
-	// const FObjectKey* SourceKey = ActionWindowSources.Find(ActionWindow.Handle);
-	//
-	// if (!SourceKey)
-	// {
-	// 	return false;
-	// }
-	//
-	// FHACF_ActionWindowInputHandler* Handler =
-	// 	ActionWindowInputHandlers.Find(*SourceKey);
-	//
-	// if (!Handler || !Handler->IsBound())
-	// {
-	// 	return false;
-	// }
-	//
-	// return Handler->Execute(ActionWindow.Handle, ActionWindow, BufferedInput);
+	const FHACF_ActionWindowInputHandler* FoundHandler = ActionWindowInputHandlers.Find(ActionWindowInputContext.WindowHandle);
+
+	if (!FoundHandler || !FoundHandler->IsBound())
+	{
+		return false;
+	}
 	
-	return false;
+	return FoundHandler->Execute(ActionWindowInputContext);
 }
 
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
@@ -335,6 +331,7 @@ void UHACF_CombatComponent::UninitializeFromASC()
 		// 프로젝트 정책에 따라 취소 대상 Ability를 필터링할 수 있다.
 		ASC->CancelAbilities(nullptr, &AbilityTypesToIgnore);
 		
+		PressedInputTags.Reset();
 		InputPressedSpecHandles.Reset();
 		InputHeldSpecHandles.Reset();
 		InputReleasedSpecHandles.Reset();
@@ -364,7 +361,13 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 	
 	if (InputTag.IsValid())
 	{
-		RecordBufferedInput(InputTag);
+		const bool bIsNewPress = !PressedInputTags.Contains(InputTag);
+		PressedInputTags.Add(InputTag);
+
+		if (bIsNewPress)
+		{
+			RecordBufferedInput(InputTag);
+		}
 		
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
@@ -390,6 +393,8 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 	
 	if (InputTag.IsValid())
 	{
+		PressedInputTags.Remove(InputTag);
+		
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
 			// 배열에 저장
@@ -498,7 +503,7 @@ void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 	TryConsumeBufferedInput();
 }
 
-FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source)
+FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler)
 {
 	const FHACF_ActionWindowHandle Handle = ActionWindows.Open(Definition);
 
@@ -517,6 +522,8 @@ FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_Act
 
 		ActionWindowSources.Add(Handle, SourceKey);
 	}
+	
+	ActionWindowInputHandlers.Add(Handle, InputHandler);
 
 	TryConsumeBufferedInput();
 
@@ -529,6 +536,8 @@ bool UHACF_CombatComponent::CloseActionWindow(FHACF_ActionWindowHandle Handle)
 	{
 		return false;
 	}
+	
+	ActionWindowInputHandlers.Remove(Handle);
 
 	if (!ActionWindows.Close(Handle))
 	{
@@ -578,6 +587,8 @@ int32 UHACF_CombatComponent::CloseAllActionWindowsFromSource(const UObject* Sour
 	for (const FHACF_ActionWindowHandle Handle : Handles)
 	{
 		ActionWindowSources.Remove(Handle);
+		
+		ActionWindowInputHandlers.Remove(Handle);
 
 		if (ActionWindows.Close(Handle))
 		{
@@ -603,4 +614,5 @@ void UHACF_CombatComponent::ClearActionWindows()
 	ActionWindows.Clear();
 	SourceWindowHandles.Reset();
 	ActionWindowSources.Reset();
+	ActionWindowInputHandlers.Reset();
 }
