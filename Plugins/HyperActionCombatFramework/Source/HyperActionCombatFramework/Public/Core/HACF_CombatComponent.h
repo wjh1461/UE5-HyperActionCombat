@@ -53,8 +53,11 @@ public:
 	void RecordBufferedInput(const FGameplayTag& InputTag);
 	
 	// 입력 버퍼 윈도우 처리
-	uint32 OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source);
-	bool CloseActionWindow(const UObject* Source);
+	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source = nullptr);
+	bool CloseActionWindow(FHACF_ActionWindowHandle Handle);
+	int32 CloseAllActionWindowsFromSource(const UObject* Source);
+	bool IsActionWindowActive(FHACF_ActionWindowHandle Handle) const;
+	void ClearActionWindows();
 	
 	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
@@ -70,7 +73,8 @@ protected:
 	
 	// 입력 버퍼 소비를 위한 메서드
 	bool TryConsumeBufferedInput();
-	const FHACF_ActionWindow* FindHighestPriorityActionWindow() const;
+	
+	bool TryDispatchActionWindowInput(const FHACF_ActionWindow& ActionWindow, const FHACF_BufferedInput& BufferedInput);
 	
 	// ASC AbilityInput 이벤트 전달
 	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
@@ -84,7 +88,14 @@ protected:
 	FHACF_InputBuffer InputBuffer;
 	
 	FHACF_ActionWindowContainer ActionWindows;
-	TMap<FObjectKey, TArray<uint32>> SourceWindowIdStacks;
+	
+	// Source가 소유한 Window 목록
+	TMap<FObjectKey, TSet<FHACF_ActionWindowHandle>> SourceWindowHandles;
+	// Handle로 닫을 때 Source 인덱스도 정리하기 위한 역방향 조회
+	TMap<FHACF_ActionWindowHandle, FObjectKey> ActionWindowSources;
+	
+	TMap<FObjectKey, FHACF_ActionWindowInputHandler> ActionWindowInputHandlers;
+	
 	
 	UPROPERTY(EditDefaultsOnly)
 	float InputBufferDuration = 0.2f;

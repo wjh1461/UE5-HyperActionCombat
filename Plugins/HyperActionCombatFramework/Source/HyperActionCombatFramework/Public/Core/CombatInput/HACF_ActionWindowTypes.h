@@ -6,6 +6,59 @@
 #include "GameplayTagContainer.h"
 #include "HACF_ActionWindowTypes.generated.h"
 
+struct FHACF_BufferedInput;
+struct FHACF_ActionWindowHandle;
+
+DECLARE_DELEGATE_RetVal_ThreeParams(bool, FHACF_ActionWindowInputHandler, FHACF_ActionWindowHandle, const FHACF_ActionWindow&, const FHACF_BufferedInput&);
+
+USTRUCT(BlueprintType)
+struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowHandle
+{
+	GENERATED_BODY()
+	
+	FHACF_ActionWindowHandle() = default;
+
+	bool IsValid() const
+	{
+		return Handle != INDEX_NONE;
+	}
+
+	void Invalidate()
+	{
+		Handle = INDEX_NONE;
+	}
+
+	bool operator==(const FHACF_ActionWindowHandle& Other) const
+	{
+		return Handle == Other.Handle;
+	}
+
+	bool operator!=(const FHACF_ActionWindowHandle& Other) const
+	{
+		return !(*this == Other);
+	}
+
+	friend uint32 GetTypeHash(const FHACF_ActionWindowHandle& Value)
+	{
+		return ::GetTypeHash(Value.Handle);
+	}
+
+	FString ToString() const
+	{
+		return IsValid() ? FString::FromInt(Handle) : TEXT("Invalid");
+	}
+
+private:
+	explicit FHACF_ActionWindowHandle(int32 InHandle) : Handle(InHandle) { }
+
+	static FHACF_ActionWindowHandle GenerateNewHandle();
+
+	UPROPERTY()
+	int32 Handle = INDEX_NONE;
+
+	friend struct FHACF_ActionWindowContainer;
+};
+
 /**
  * 
  */
@@ -24,7 +77,7 @@ struct FHACF_ActionWindow
 	int32 Priority;
 	
 	UPROPERTY(BlueprintReadOnly)
-	int32 WindowId;
+	FHACF_ActionWindowHandle Handle;
 };
 
 /**
@@ -47,11 +100,14 @@ struct FHACF_ActionWindowDefinition
 
 struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowContainer
 {
-	uint32 Open(const FHACF_ActionWindowDefinition& Definition);
+	FHACF_ActionWindowHandle Open(const FHACF_ActionWindowDefinition& Definition);
 
-	bool Close(uint32 WindowId);
+	bool Close(FHACF_ActionWindowHandle Handle);
+
+	bool Contains(FHACF_ActionWindowHandle Handle) const;
 
 	const FHACF_ActionWindow* FindHighestPriority() const;
+	const FHACF_ActionWindow* FindHighestPriorityAccepting(const FGameplayTag& InputTag) const;
 
 	void Clear();
 
@@ -67,7 +123,4 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowContainer
 
 private:
 	TArray<FHACF_ActionWindow> Windows;
-
-	// 이 컨테이너가 관리하는 Window ID 발급 상태
-	uint32 NextWindowId = 1;
 };
