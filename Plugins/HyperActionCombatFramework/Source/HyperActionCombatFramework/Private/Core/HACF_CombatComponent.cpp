@@ -142,14 +142,22 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 
 bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext)
 {
-	const FHACF_ActionWindowInputHandler* FoundHandler = ActionWindowInputHandlers.Find(ActionWindowInputContext.WindowHandle);
-
-	if (!FoundHandler || !FoundHandler->IsBound())
+	if (bIsDispatchingBufferedInput)
 	{
 		return false;
 	}
+
+	TGuardValue<bool> DispatchGuard(bIsDispatchingBufferedInput, true);
 	
-	return FoundHandler->Execute(ActionWindowInputContext);
+	const FHACF_ActionWindowInputHandler FoundHandler = ActionWindowInputHandlers.FindRef(ActionWindowInputContext.WindowHandle);
+
+	if (!FoundHandler.IsBound())
+	{
+		// 죽은 window 정리 또는 다음 window 탐색
+		return false;
+	}
+	
+	return FoundHandler.Execute(ActionWindowInputContext);
 }
 
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)

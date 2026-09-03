@@ -106,4 +106,6 @@ protected:
 private:
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> ASC;
+	
+	bool bIsDispatchingBufferedInput = false;
 };
