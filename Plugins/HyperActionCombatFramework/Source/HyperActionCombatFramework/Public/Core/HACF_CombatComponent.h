@@ -100,7 +100,7 @@ protected:
 	
 	TMap<FHACF_ActionWindowHandle, FHACF_ActionWindowInputHandler> ActionWindowInputHandlers;
 	
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "HACF|Input")
 	float InputBufferDuration = 0.2f;
 	
 private:
