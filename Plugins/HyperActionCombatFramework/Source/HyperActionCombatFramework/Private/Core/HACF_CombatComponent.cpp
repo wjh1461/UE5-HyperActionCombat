@@ -624,3 +624,28 @@ void UHACF_CombatComponent::ClearActionWindows()
 	ActionWindowSources.Reset();
 	ActionWindowInputHandlers.Reset();
 }
+
+void UHACF_CombatComponent::SetActiveAttackAbility(UHACF_GameplayAbility* Ability)
+{
+	if (!IsValid(Ability) || !Ability->IsActive() || Ability->GetCombatComponent() != this)
+	{
+		return;
+	}
+	
+	ActiveAttackAbility = Ability;
+}
+
+void UHACF_CombatComponent::ClearActiveAttackAbility(const UHACF_GameplayAbility* Ability)
+{
+	// 이전 Ability의 종료가 새 Ability의 등록을 지우지 않도록 한다.
+	if (ActiveAttackAbility.Get() == Ability)
+	{
+		ActiveAttackAbility.Reset();
+	}
+}
+
+UHACF_GameplayAbility* UHACF_CombatComponent::GetActiveAttackAbility() const
+{
+	UHACF_GameplayAbility* Ability = ActiveAttackAbility.Get();
+	return IsValid(Ability) && Ability->IsActive() ? Ability : nullptr;
+}

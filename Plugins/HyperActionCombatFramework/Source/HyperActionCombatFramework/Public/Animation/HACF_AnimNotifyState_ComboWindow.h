@@ -7,6 +7,8 @@
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "HACF_AnimNotifyState_ComboWindow.generated.h"
 
+class UHACF_GameplayAbility;
+class UHACF_CombatComponent;
 /**
  * 
  */
@@ -16,6 +18,19 @@ class HYPERACTIONCOMBATFRAMEWORK_API UHACF_AnimNotifyState_ComboWindow : public 
 	GENERATED_BODY()
 	
 public:
+	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference) override;
+	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+	
+	virtual void BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload) override;
+	virtual void BranchingPointNotifyEnd(FBranchingPointNotifyPayload& BranchingPointPayload) override;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HACF|Combo")
 	FGameplayTag WindowTag;
+	
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UHACF_CombatComponent> CombatComponent;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UHACF_GameplayAbility> ActiveAbility;
 };

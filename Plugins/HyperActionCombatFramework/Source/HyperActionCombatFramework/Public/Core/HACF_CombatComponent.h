@@ -13,6 +13,7 @@
 struct FGameplayAbilitySpec;
 class UAbilitySystemComponent;
 struct FGameplayAbilitySpecHandle;
+class UHACF_GameplayAbility;
 
 /*
  *
@@ -62,6 +63,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 
+	void SetActiveAttackAbility(UHACF_GameplayAbility* Ability);
+	void ClearActiveAttackAbility(const UHACF_GameplayAbility* Ability);
+	UHACF_GameplayAbility* GetActiveAttackAbility() const;
+	
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -106,6 +111,9 @@ protected:
 private:
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> ASC;
+	
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UHACF_GameplayAbility> ActiveAttackAbility;
 	
 	bool bIsDispatchingBufferedInput = false;
 };
