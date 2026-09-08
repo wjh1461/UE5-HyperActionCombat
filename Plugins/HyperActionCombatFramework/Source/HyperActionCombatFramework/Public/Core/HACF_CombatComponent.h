@@ -60,6 +60,9 @@ public:
 	bool IsActionWindowActive(FHACF_ActionWindowHandle Handle) const;
 	void ClearActionWindows();
 	
+	// 호출자가 핸들을 저장한 뒤 실행합니다.
+	bool ProcessBufferedInput();
+	
 	UFUNCTION(BlueprintCallable, Category="HACF")
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
 

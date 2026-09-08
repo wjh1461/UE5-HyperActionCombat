@@ -533,7 +533,7 @@ FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_Act
 	
 	ActionWindowInputHandlers.Add(Handle, InputHandler);
 
-	TryConsumeBufferedInput();
+	//TryConsumeBufferedInput();
 
 	return Handle;
 }
@@ -623,6 +623,11 @@ void UHACF_CombatComponent::ClearActionWindows()
 	SourceWindowHandles.Reset();
 	ActionWindowSources.Reset();
 	ActionWindowInputHandlers.Reset();
+}
+
+bool UHACF_CombatComponent::ProcessBufferedInput()
+{
+	return TryConsumeBufferedInput();
 }
 
 void UHACF_CombatComponent::SetActiveAttackAbility(UHACF_GameplayAbility* Ability)

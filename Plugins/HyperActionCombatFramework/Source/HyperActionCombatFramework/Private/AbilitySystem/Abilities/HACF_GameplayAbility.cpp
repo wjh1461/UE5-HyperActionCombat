@@ -53,7 +53,22 @@ void UHACF_GameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorIn
 
 bool UHACF_GameplayAbility::HandleComboInput(const FHACF_ActionWindowInputContext& Context)
 {
-	return false;
+	if (ComboWindowHandle != Context.WindowHandle)
+	{
+		return false;
+	}
+	
+	const FHACF_ComboNode* CurrentComboNode = AttackComboDefinition->FindNode(CurrentComboNodeId);
+	FGameplayTagContainer OwnedTags = GetAbilitySystemComponentFromActorInfo()->GetOwnedGameplayTags();
+	const FHACF_ComboTransition* ComboTransition = CurrentComboNode->FindTransition(Context.WindowTag, Context.InputTag, OwnedTags);
+	if (!ComboTransition)
+	{
+		return false;
+	}
+	
+	AdvanceCombo(ComboTransition);
+	
+	return true;
 }
 
 void UHACF_GameplayAbility::StartAttack(FName NodeId)
@@ -63,8 +78,24 @@ void UHACF_GameplayAbility::StartAttack(FName NodeId)
 	{
 		return;
 	}
+
+	if (!IsValid(AttackComboDefinition))
+	{
+		return;
+	}
 	
-	UAnimMontage* MontageToPlay = AttackComboDefinition ? AttackComboDefinition->GetEntryNode()->Montage : AbilityMontage;
+	UAnimMontage* MontageToPlay = AbilityMontage;
+	FName StartingSection = NAME_None;
+	CurrentComboNodeId = NodeId;
+	
+	if (const FHACF_ComboNode* CurrentComboNode = AttackComboDefinition->FindNode(NodeId))
+	{
+		MontageToPlay = CurrentComboNode->Montage;
+		StartingSection = CurrentComboNode->StartSection;
+	}
+	
+	// 기존 몽타주가 중단되어도 이 어빌리티를 종료하지 않도록 합니다.
+	UnbindAttackMontageCallbacks();
 	
 	UPlayMoverMontageCallbackProxy* AttackMontageProxy =
 	   UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
@@ -72,10 +103,12 @@ void UHACF_GameplayAbility::StartAttack(FName NodeId)
 		   MontageToPlay,
 		   1.0f,       // PlayRate
 		   0.0f,       // StartingPosition
-		   NAME_None,  // StartingSection
+		   StartingSection,  // StartingSection
 		   true,       // StopAllMontages
 		   -1.0f);     // 기본 BlendOut 사용
 	
+	ActiveAttackMontageProxy = AttackMontageProxy;
+	GetCombatComponent()->SetActiveAttackAbility(this);
 	AttackMontageProxy->OnCompleted.AddDynamic(this, &ThisClass::OnEndAbility);
 	AttackMontageProxy->OnInterrupted.AddDynamic(this, &ThisClass::OnEndAbility);
 }
@@ -94,9 +127,13 @@ void UHACF_GameplayAbility::OpenComboWindow(const FGameplayTag& WindowTag)
 	}
 	
 	FHACF_ActionWindowDefinition OutActionWindowDefinition;
+	const FHACF_ComboNode* CurrentComboNode = AttackComboDefinition->FindNode(CurrentComboNodeId);
 	
-	AttackComboDefinition->GetEntryNode()->BuildActionWindowDefinition(WindowTag, OutActionWindowDefinition);
-	ComboWindowHandle = CombatComponent->OpenActionWindow(OutActionWindowDefinition, this, FHACF_ActionWindowInputHandler::CreateUObject(this, &ThisClass::HandleComboInput));
+	if (CurrentComboNode->BuildActionWindowDefinition(WindowTag, OutActionWindowDefinition))
+	{
+		ComboWindowHandle = CombatComponent->OpenActionWindow(OutActionWindowDefinition, this, FHACF_ActionWindowInputHandler::CreateUObject(this, &ThisClass::HandleComboInput));
+		CombatComponent->ProcessBufferedInput();
+	}
 }
 
 void UHACF_GameplayAbility::CloseComboWindow()
@@ -110,12 +147,31 @@ void UHACF_GameplayAbility::CloseComboWindow()
 	CombatComponent->CloseActionWindow(ComboWindowHandle);
 }
 
+void UHACF_GameplayAbility::AdvanceCombo(const FHACF_ComboTransition* ComboTransition)
+{
+	StartAttack(ComboTransition->TargetNodeId);
+}
+
 void UHACF_GameplayAbility::ResetComboState()
 {
 	if (ComboWindowHandle.IsValid())
 	{
 		ComboWindowHandle.Invalidate();
 	}
+}
+
+void UHACF_GameplayAbility::UnbindAttackMontageCallbacks()
+{
+	if (!ActiveAttackMontageProxy)
+	{
+		return;
+	}
+
+	// 어빌리티가 등록한 콜백만 제거합니다.
+	ActiveAttackMontageProxy->OnCompleted.RemoveDynamic(this, &ThisClass::OnEndAbility);
+	ActiveAttackMontageProxy->OnInterrupted.RemoveDynamic(this, &ThisClass::OnEndAbility);
+
+	ActiveAttackMontageProxy = nullptr;
 }
 
 void UHACF_GameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -125,7 +181,13 @@ void UHACF_GameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Han
 
 void UHACF_GameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	UnbindAttackMontageCallbacks();
 	ResetComboState();
+
+	if (UHACF_CombatComponent* CombatComponent = GetCombatComponent())
+	{
+		CombatComponent->ClearActiveAttackAbility(this);
+	}
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

@@ -8,6 +8,7 @@
 #include "Core/CombatInput/HACF_ActionWindowTypes.h"
 #include "HACF_GameplayAbility.generated.h"
 
+class UPlayMoverMontageCallbackProxy;
 struct FHACF_ActionWindowInputContext;
 class UHACF_HeroComponent;
 class UHACF_CombatComponent;
@@ -71,15 +72,21 @@ public:
 	void CloseComboWindow();
 	
 	// 예약된 전이를 실제로 적용
-	void AdvanceCombo();
+	void AdvanceCombo(const FHACF_ComboTransition* ComboTransition);
 
 	// EndAbility에서 공통 호출
 	void ResetComboState();
+	
+	void UnbindAttackMontageCallbacks();
 	
 	UFUNCTION()
 	void OnEndAbility(FName NotifyName) { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false); }
 	
 	FHACF_ActionWindowHandle ComboWindowHandle;
+	FName CurrentComboNodeId;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UPlayMoverMontageCallbackProxy> ActiveAttackMontageProxy;
 	//~End ComboAttack
 	
 protected:
