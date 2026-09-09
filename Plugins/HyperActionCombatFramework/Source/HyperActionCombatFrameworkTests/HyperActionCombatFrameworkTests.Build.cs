@@ -48,7 +48,8 @@ public class HyperActionCombatFrameworkTests : ModuleRules
 				"EnhancedInput",
 				"InputCore",
 				
-				"ModularGameplay"
+				"ModularGameplay",
+				"Mover"
 			}
 			);
 		

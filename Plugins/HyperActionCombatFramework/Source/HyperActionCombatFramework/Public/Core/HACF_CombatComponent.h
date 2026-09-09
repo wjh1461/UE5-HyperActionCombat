@@ -97,6 +97,7 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
 
+	// 입력 버퍼 시스템
 	FHACF_InputBuffer InputBuffer;
 	
 	FHACF_ActionWindowContainer ActionWindows;

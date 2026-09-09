@@ -4,8 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbility.h"
-#include "Combat/Combo/HACF_ComboDefinition.h"
-#include "Core/CombatInput/HACF_ActionWindowTypes.h"
 #include "HACF_GameplayAbility.generated.h"
 
 class UPlayMoverMontageCallbackProxy;
@@ -59,40 +57,7 @@ public:
 	
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 	
-	//~Begin ComboAttack
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="HACF|ComboAttack")
-	TObjectPtr<UHACF_ComboDefinition> AttackComboDefinition;
-	
-	bool HandleComboInput(const FHACF_ActionWindowInputContext& Context);
-	
-	UFUNCTION(BlueprintCallable, Category="HACF|Combat")
-	void StartAttack(FName NodeId);
-	
-	void OpenComboWindow(const FGameplayTag& WindowTag);
-	void CloseComboWindow();
-	
-	// 예약된 전이를 실제로 적용
-	void AdvanceCombo(const FHACF_ComboTransition* ComboTransition);
-
-	// EndAbility에서 공통 호출
-	void ResetComboState();
-	
-	void UnbindAttackMontageCallbacks();
-	
-	UFUNCTION()
-	void OnEndAbility(FName NotifyName) { EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false); }
-	
-	FHACF_ActionWindowHandle ComboWindowHandle;
-	FName CurrentComboNodeId;
-	
-	UPROPERTY(Transient)
-	TObjectPtr<UPlayMoverMontageCallbackProxy> ActiveAttackMontageProxy;
-	//~End ComboAttack
-	
 protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
-	
 	void TryActivateAbilityOnSpawn(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec);
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HACF|AbilityActivation")
