@@ -7,6 +7,7 @@
 #include "Animation/AnimNotifyQueue.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/HACF_AnimNotifyState_ComboWindow.h"
+#include "Abilities/TestCombatGameplayAbility.h"
 #include "Components/ActorTestSpawner.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/HACF_CombatComponent.h"
@@ -111,7 +112,7 @@ namespace HyperActionCombatFrameworkTests
 			USkeletalMeshComponent* Mesh = nullptr;
 			UAbilitySystemComponent* ASC = nullptr;
 			UHACF_CombatComponent* Combat = nullptr;
-			UHACF_CombatGameplayAbility* Ability = nullptr;
+			UTestCombatGameplayAbility* Ability = nullptr;
 		};
 
 		FActorTestSpawner Spawner;
@@ -152,10 +153,10 @@ namespace HyperActionCombatFrameworkTests
 			Combatant.Combat->RegisterComponent();
 			Combatant.Combat->InitializeWithASC(Combatant.ASC, &Pawn);
 
-			const FGameplayAbilitySpecHandle Handle = Combatant.ASC->GiveAbility(FGameplayAbilitySpec(UHACF_CombatGameplayAbility::StaticClass(), 1));
+			const FGameplayAbilitySpecHandle Handle = Combatant.ASC->GiveAbility(FGameplayAbilitySpec(UTestCombatGameplayAbility::StaticClass(), 1));
 			ASSERT_THAT(IsTrue(Combatant.ASC->TryActivateAbility(Handle)));
 			
-			Combatant.Ability = Cast<UHACF_CombatGameplayAbility>(Combatant.ASC->FindAbilitySpecFromHandle(Handle)->GetPrimaryInstance());
+			Combatant.Ability = Cast<UTestCombatGameplayAbility>(Combatant.ASC->FindAbilitySpecFromHandle(Handle)->GetPrimaryInstance());
 			ASSERT_THAT(IsNotNull(Combatant.Ability));
 
 			UHACF_ComboDefinition* Definition = NewObject<UHACF_ComboDefinition>(Combatant.Ability);
@@ -173,7 +174,7 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsNotNull(DefinitionProperty));
 			
 			DefinitionProperty->SetObjectPropertyValue_InContainer(Combatant.Ability, Definition);
-			Combatant.Ability->PlayComboNode(Node.NodeId);
+			Combatant.Ability->PlayComboNodeForTest(Node.NodeId);
 			
 			ASSERT_THAT(IsTrue(Combatant.Ability->IsActive()));
 			ASSERT_THAT(IsTrue(Combatant.Mesh->GetAnimInstance()->Montage_IsPlaying(Montage)));
@@ -244,7 +245,7 @@ namespace HyperActionCombatFrameworkTests
 			FBranchingPointNotifyPayload NewPayload(First.Mesh, Montage, &Event, 11);
 			
 			Notify->BranchingPointNotifyBegin(OldPayload);
-			First.Ability->PlayComboNode(TEXT("Attack"));
+			First.Ability->PlayComboNodeForTest(TEXT("Attack"));
 			
 			Notify->BranchingPointNotifyBegin(NewPayload);
 			Notify->BranchingPointNotifyEnd(OldPayload);
@@ -358,7 +359,7 @@ namespace HyperActionCombatFrameworkTests
 
 			ASSERT_THAT(IsTrue(ExistingRoute.IsValid()));
 
-			First.Ability->PlayComboNode(TEXT("Attack"));
+			First.Ability->PlayComboNodeForTest(TEXT("Attack"));
 			First.Combat->RouteComboWindowBegin(FHACF_ComboWindowKey::FromQueuedNotify(30), WindowTag);
 
 			ASSERT_THAT(AreEqual(1, BeginCalls));
