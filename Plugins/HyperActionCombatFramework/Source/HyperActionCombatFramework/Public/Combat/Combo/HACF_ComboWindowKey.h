@@ -5,8 +5,8 @@
 
 struct FBranchingPointNotifyPayload;
 
-// Queued IDs and Branching Point payloads identify different kinds of notify executions.
-// NotifyState identity survives the engine copying an active FAnimNotifyEvent.
+// Queued ID와 Branching Point 페이로드는 서로 다른 종류의 노티파이 실행을 식별합니다.
+// 엔진이 활성 FAnimNotifyEvent를 복사해도 NotifyState의 객체 식별 정보는 유지됩니다.
 struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ComboWindowKey
 {
 	static FHACF_ComboWindowKey FromQueuedNotify(int32 NotifyInstanceId);
@@ -25,7 +25,7 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ComboWindowKey
 	}
 
 private:
-	// Queued notify ID, or montage instance ID when Mesh/NotifyState are set.
+	// Queued 노티파이 ID이며, Mesh와 NotifyState가 설정된 경우에는 몽타주 인스턴스 ID입니다.
 	int32 NotifyId = INDEX_NONE;
 	FObjectKey Mesh;
 	FObjectKey NotifyState;

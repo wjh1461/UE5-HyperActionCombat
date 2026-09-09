@@ -16,6 +16,94 @@
 
 namespace HyperActionCombatFrameworkTests
 {
+	TEST_CLASS(HACF_ComboWindowRouteTest, "HyperActionCombat.Tests.Combo.WindowRoute")
+	{
+		UHACF_CombatComponent* Combat = nullptr;
+		FGameplayTag WindowTag;
+		FHACF_ComboWindowKey NotifyKey;
+
+		BEFORE_EACH()
+		{
+			Combat = NewObject<UHACF_CombatComponent>();
+			ASSERT_THAT(IsNotNull(Combat));
+
+			WindowTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+			NotifyKey = FHACF_ComboWindowKey::FromQueuedNotify(10);
+			ASSERT_THAT(IsTrue(WindowTag.IsValid()));
+			ASSERT_THAT(IsTrue(NotifyKey.IsValid()));
+		}
+
+		TEST_METHOD(StaleRouteHandle_DoesNotClearReplacementRoute)
+		{
+			int32 OldBeginCalls = 0;
+			int32 OldEndCalls = 0;
+			int32 NewBeginCalls = 0;
+			int32 NewEndCalls = 0;
+
+			const FHACF_ComboWindowRouteHandle OldHandle = Combat->BindComboWindowRoute(
+				FHACF_ComboWindowBeginHandler::CreateLambda(
+					[&OldBeginCalls](const FHACF_ComboWindowKey&, const FGameplayTag&)
+					{
+						++OldBeginCalls;
+					}),
+				FHACF_ComboWindowEndHandler::CreateLambda(
+					[&OldEndCalls](const FHACF_ComboWindowKey&)
+					{
+						++OldEndCalls;
+					}));
+
+			const FHACF_ComboWindowRouteHandle NewHandle = Combat->BindComboWindowRoute(
+				FHACF_ComboWindowBeginHandler::CreateLambda(
+					[&NewBeginCalls](const FHACF_ComboWindowKey&, const FGameplayTag&)
+					{
+						++NewBeginCalls;
+					}),
+				FHACF_ComboWindowEndHandler::CreateLambda(
+					[&NewEndCalls](const FHACF_ComboWindowKey&)
+					{
+						++NewEndCalls;
+					}));
+
+			ASSERT_THAT(IsTrue(OldHandle.IsValid()));
+			ASSERT_THAT(IsTrue(NewHandle.IsValid()));
+			ASSERT_THAT(IsFalse(Combat->UnbindComboWindowRoute(OldHandle)));
+
+			Combat->RouteComboWindowBegin(NotifyKey, WindowTag);
+			Combat->RouteComboWindowEnd(NotifyKey);
+
+			ASSERT_THAT(AreEqual(0, OldBeginCalls));
+			ASSERT_THAT(AreEqual(0, OldEndCalls));
+			ASSERT_THAT(AreEqual(1, NewBeginCalls));
+			ASSERT_THAT(AreEqual(1, NewEndCalls));
+		}
+
+		TEST_METHOD(UnboundRoute_IgnoresBeginAndEnd)
+		{
+			int32 BeginCalls = 0;
+			int32 EndCalls = 0;
+
+			const FHACF_ComboWindowRouteHandle Handle = Combat->BindComboWindowRoute(
+				FHACF_ComboWindowBeginHandler::CreateLambda(
+					[&BeginCalls](const FHACF_ComboWindowKey&, const FGameplayTag&)
+					{
+						++BeginCalls;
+					}),
+				FHACF_ComboWindowEndHandler::CreateLambda(
+					[&EndCalls](const FHACF_ComboWindowKey&)
+					{
+						++EndCalls;
+					}));
+
+			ASSERT_THAT(IsTrue(Combat->UnbindComboWindowRoute(Handle)));
+
+			Combat->RouteComboWindowBegin(NotifyKey, WindowTag);
+			Combat->RouteComboWindowEnd(NotifyKey);
+
+			ASSERT_THAT(AreEqual(0, BeginCalls));
+			ASSERT_THAT(AreEqual(0, EndCalls));
+		}
+	};
+
 	TEST_CLASS(HACF_ComboWindowNotifyTest, "HyperActionCombat.Tests.Combo.WindowNotify")
 	{
 		struct FCombatant
@@ -85,7 +173,7 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsNotNull(DefinitionProperty));
 			
 			DefinitionProperty->SetObjectPropertyValue_InContainer(Combatant.Ability, Definition);
-			Combatant.Ability->StartAttack(Node.NodeId);
+			Combatant.Ability->PlayComboNode(Node.NodeId);
 			
 			ASSERT_THAT(IsTrue(Combatant.Ability->IsActive()));
 			ASSERT_THAT(IsTrue(Combatant.Mesh->GetAnimInstance()->Montage_IsPlaying(Montage)));
@@ -156,7 +244,7 @@ namespace HyperActionCombatFrameworkTests
 			FBranchingPointNotifyPayload NewPayload(First.Mesh, Montage, &Event, 11);
 			
 			Notify->BranchingPointNotifyBegin(OldPayload);
-			First.Ability->StartAttack(TEXT("Attack"));
+			First.Ability->PlayComboNode(TEXT("Attack"));
 			
 			Notify->BranchingPointNotifyBegin(NewPayload);
 			Notify->BranchingPointNotifyEnd(OldPayload);
@@ -239,14 +327,41 @@ namespace HyperActionCombatFrameworkTests
 			FBranchingPointNotifyPayload Payload(First.Mesh, Montage, &Event, 10);
 			Notify->BranchingPointNotifyBegin(Payload);
 			
-			First.Ability->OpenComboWindow(20, WindowTag);
+			First.Combat->RouteComboWindowBegin(FHACF_ComboWindowKey::FromQueuedNotify(20), WindowTag);
 			First.ASC->CancelAllAbilities();
 			
 			ASSERT_THAT(IsFalse(First.Ability->IsActive()));
-			ASSERT_THAT(IsNull(First.Combat->GetActiveAttackAbility()));
 			ASSERT_THAT(AreEqual(0, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
-			
+
+			Notify->BranchingPointNotifyBegin(Payload);
+			ASSERT_THAT(AreEqual(0, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
+
 			Notify->BranchingPointNotifyEnd(Payload);
+		}
+
+		TEST_METHOD(InactiveAbility_CannotReplaceExistingComboWindowRoute)
+		{
+			First.ASC->CancelAllAbilities();
+			ASSERT_THAT(IsFalse(First.Ability->IsActive()));
+
+			int32 BeginCalls = 0;
+			const FHACF_ComboWindowRouteHandle ExistingRoute = First.Combat->BindComboWindowRoute(
+				FHACF_ComboWindowBeginHandler::CreateLambda(
+					[&BeginCalls](const FHACF_ComboWindowKey&, const FGameplayTag&)
+					{
+						++BeginCalls;
+					}),
+				FHACF_ComboWindowEndHandler::CreateLambda(
+					[](const FHACF_ComboWindowKey&)
+					{
+					}));
+
+			ASSERT_THAT(IsTrue(ExistingRoute.IsValid()));
+
+			First.Ability->PlayComboNode(TEXT("Attack"));
+			First.Combat->RouteComboWindowBegin(FHACF_ComboWindowKey::FromQueuedNotify(30), WindowTag);
+
+			ASSERT_THAT(AreEqual(1, BeginCalls));
 		}
 	};
 }

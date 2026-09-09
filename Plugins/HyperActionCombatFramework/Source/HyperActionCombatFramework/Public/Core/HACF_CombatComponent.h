@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "CombatInput/HACF_InputBuffer.h"
+#include "Combat/Combo/HACF_ComboWindowRoute.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
 #include "CombatInput/HACF_ActionWindowTypes.h"
@@ -13,7 +14,6 @@
 struct FGameplayAbilitySpec;
 class UAbilitySystemComponent;
 struct FGameplayAbilitySpecHandle;
-class UHACF_GameplayAbility;
 
 /*
  *
@@ -37,38 +37,47 @@ public:
 	virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,FGameplayTag DesiredState) override;
 	virtual void CheckDefaultInitialization() override;
 	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
-	//~End
 	
 	void HandlePlayerStateChanged();
+	//~End
 	
+	//~Begin AbilitySystem
 	void InitializeWithASC(UAbilitySystemComponent* InASC, AActor* InOwnerActor);
 	void UninitializeFromASC();
 	
+	UFUNCTION(BlueprintCallable, Category="HACF")
+	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
+	//~End
+
+	//~Begin Ability Input
 	void AbilityInputTagPressed(const FGameplayTag& InputTag);
 	void AbilityInputTagReleased(const FGameplayTag& InputTag);
 	
 	// 입력 처리
 	// PlayerController의 PostProcessInput에서 호출
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
+	//~End
 	
+	//~Begin Buffered Input / Action Windows
 	// 입력 버퍼 윈도우 처리
 	void RecordBufferedInput(const FGameplayTag& InputTag);
 	
 	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler);
 	bool CloseActionWindow(FHACF_ActionWindowHandle Handle);
 	int32 CloseAllActionWindowsFromSource(const UObject* Source);
-	bool IsActionWindowActive(FHACF_ActionWindowHandle Handle) const;
 	void ClearActionWindows();
+	
+	bool IsActionWindowActive(FHACF_ActionWindowHandle Handle) const;
 	
 	// 호출자가 핸들을 저장한 뒤 실행합니다.
 	bool ProcessBufferedInput();
+	//~End
 	
-	UFUNCTION(BlueprintCallable, Category="HACF")
-	UAbilitySystemComponent* GetAbilitySystemComponent() const { return ASC; }
-
-	void SetActiveAttackAbility(UHACF_GameplayAbility* Ability);
-	void ClearActiveAttackAbility(const UHACF_GameplayAbility* Ability);
-	UHACF_GameplayAbility* GetActiveAttackAbility() const;
+	
+	FHACF_ComboWindowRouteHandle BindComboWindowRoute(FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler);
+	bool UnbindComboWindowRoute(FHACF_ComboWindowRouteHandle Handle);
+	void RouteComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag);
+	void RouteComboWindowEnd(const FHACF_ComboWindowKey& NotifyKey);
 	
 protected:
 	// Called when the game starts
@@ -116,8 +125,10 @@ private:
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> ASC;
 	
-	UPROPERTY(Transient)
-	TWeakObjectPtr<UHACF_GameplayAbility> ActiveAttackAbility;
+	FHACF_ComboWindowBeginHandler ComboWindowBeginHandler;
+	FHACF_ComboWindowEndHandler ComboWindowEndHandler;
+	uint32 NextComboWindowRouteId = 0;
+	uint32 ActiveComboWindowRouteId = 0;
 	
 	bool bIsDispatchingBufferedInput = false;
 };

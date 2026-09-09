@@ -7,7 +7,6 @@
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "HACF_AnimNotifyState_ComboWindow.generated.h"
 
-class UHACF_CombatGameplayAbility;
 class UHACF_CombatComponent;
 /**
  * 
@@ -27,5 +26,5 @@ public:
 	FGameplayTag WindowTag;
 	
 private:
-	UHACF_CombatGameplayAbility* FindActiveCombatAbility(USkeletalMeshComponent* MeshComp);
+	static UHACF_CombatComponent* FindCombatComponent(USkeletalMeshComponent* MeshComp);
 };

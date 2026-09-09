@@ -23,7 +23,7 @@ FHACF_ComboWindowKey FHACF_ComboWindowKey::FromBranchingPoint(const FBranchingPo
 	FHACF_ComboWindowKey Key;
 	Key.NotifyId = Payload.MontageInstanceID;
 	Key.Mesh = FObjectKey(Payload.SkelMeshComponent);
-	// FAnimNotifyEvent equality also identifies state notifies by NotifyStateClass.
+	// FAnimNotifyEvent의 동등성 비교도 NotifyStateClass로 스테이트 노티파이를 식별합니다.
 	Key.NotifyState = FObjectKey(Payload.NotifyEvent->NotifyStateClass);
 	return Key;
 }

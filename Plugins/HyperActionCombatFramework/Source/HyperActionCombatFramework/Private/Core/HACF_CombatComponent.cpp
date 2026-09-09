@@ -326,6 +326,9 @@ void UHACF_CombatComponent::UninitializeFromASC()
 {
 	InputBuffer.Clear();
 	ClearActionWindows();
+	ComboWindowBeginHandler.Unbind();
+	ComboWindowEndHandler.Unbind();
+	ActiveComboWindowRouteId = 0;
 	
 	if (!ASC)
 	{
@@ -630,27 +633,60 @@ bool UHACF_CombatComponent::ProcessBufferedInput()
 	return TryConsumeBufferedInput();
 }
 
-void UHACF_CombatComponent::SetActiveAttackAbility(UHACF_GameplayAbility* Ability)
+FHACF_ComboWindowRouteHandle UHACF_CombatComponent::BindComboWindowRoute(
+	FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler)
 {
-	if (!IsValid(Ability) || !Ability->IsActive() || Ability->GetCombatComponent() != this)
+	if (!BeginHandler.IsBound() || !EndHandler.IsBound())
+	{
+		return {};
+	}
+
+	++NextComboWindowRouteId;
+	if (NextComboWindowRouteId == 0)
+	{
+		++NextComboWindowRouteId;
+	}
+
+	ComboWindowBeginHandler = MoveTemp(BeginHandler);
+	ComboWindowEndHandler = MoveTemp(EndHandler);
+	ActiveComboWindowRouteId = NextComboWindowRouteId;
+
+	return FHACF_ComboWindowRouteHandle(ActiveComboWindowRouteId);
+}
+
+bool UHACF_CombatComponent::UnbindComboWindowRoute(FHACF_ComboWindowRouteHandle Handle)
+{
+	// 이전 실행의 늦은 종료가 새 실행의 라우트를 해제하지 않도록 한다.
+	if (!Handle.IsValid() || Handle.Value != ActiveComboWindowRouteId)
+	{
+		return false;
+	}
+
+	ComboWindowBeginHandler.Unbind();
+	ComboWindowEndHandler.Unbind();
+	ActiveComboWindowRouteId = 0;
+	return true;
+}
+
+void UHACF_CombatComponent::RouteComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag)
+{
+	if (!NotifyKey.IsValid() || !WindowTag.IsValid())
 	{
 		return;
 	}
-	
-	ActiveAttackAbility = Ability;
+
+	// 실행 중 콤보 전환으로 현재 라우트가 교체될 수 있으므로 복사본을 호출한다.
+	const FHACF_ComboWindowBeginHandler Handler = ComboWindowBeginHandler;
+	Handler.ExecuteIfBound(NotifyKey, WindowTag);
 }
 
-void UHACF_CombatComponent::ClearActiveAttackAbility(const UHACF_GameplayAbility* Ability)
+void UHACF_CombatComponent::RouteComboWindowEnd(const FHACF_ComboWindowKey& NotifyKey)
 {
-	// 이전 Ability의 종료가 새 Ability의 등록을 지우지 않도록 한다.
-	if (ActiveAttackAbility.Get() == Ability)
+	if (!NotifyKey.IsValid())
 	{
-		ActiveAttackAbility.Reset();
+		return;
 	}
-}
 
-UHACF_GameplayAbility* UHACF_CombatComponent::GetActiveAttackAbility() const
-{
-	UHACF_GameplayAbility* Ability = ActiveAttackAbility.Get();
-	return IsValid(Ability) && Ability->IsActive() ? Ability : nullptr;
+	const FHACF_ComboWindowEndHandler Handler = ComboWindowEndHandler;
+	Handler.ExecuteIfBound(NotifyKey);
 }

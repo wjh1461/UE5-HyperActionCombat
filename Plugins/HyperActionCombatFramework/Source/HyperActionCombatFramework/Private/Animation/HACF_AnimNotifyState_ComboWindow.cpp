@@ -3,7 +3,6 @@
 
 #include "Animation/HACF_AnimNotifyState_ComboWindow.h"
 
-#include "AbilitySystem/Abilities/HACF_CombatGameplayAbility.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/AnimNotifyEndDataContext.h"
 #include "Core/HACF_CombatComponent.h"
@@ -18,18 +17,18 @@ void UHACF_AnimNotifyState_ComboWindow::NotifyBegin(USkeletalMeshComponent* Mesh
 		return;
 	}
 
-	if (UHACF_CombatGameplayAbility* Ability = FindActiveCombatAbility(MeshComp))
+	if (UHACF_CombatComponent* CombatComponent = FindCombatComponent(MeshComp))
 	{
-		Ability->OpenComboWindow(EventReference.GetNotifyInstanceID(), WindowTag);
+		CombatComponent->RouteComboWindowBegin(FHACF_ComboWindowKey::FromQueuedNotify(EventReference.GetNotifyInstanceID()), WindowTag);
 	}
 }
 
 void UHACF_AnimNotifyState_ComboWindow::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
 	const FAnimNotifyEventReference& EventReference)
 {
-	if (UHACF_CombatGameplayAbility* Ability = FindActiveCombatAbility(MeshComp))
+	if (UHACF_CombatComponent* CombatComponent = FindCombatComponent(MeshComp))
 	{
-		Ability->CloseComboWindow(EventReference.GetNotifyInstanceID());
+		CombatComponent->RouteComboWindowEnd(FHACF_ComboWindowKey::FromQueuedNotify(EventReference.GetNotifyInstanceID()));
 	}
 	
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
@@ -44,18 +43,18 @@ void UHACF_AnimNotifyState_ComboWindow::BranchingPointNotifyBegin(FBranchingPoin
 
 	if (WindowTag.IsValid())
 	{
-		if (UHACF_CombatGameplayAbility* Ability = FindActiveCombatAbility(Payload.SkelMeshComponent))
+		if (UHACF_CombatComponent* CombatComponent = FindCombatComponent(Payload.SkelMeshComponent))
 		{
-			Ability->OpenComboWindow(FHACF_ComboWindowKey::FromBranchingPoint(Payload), WindowTag);
+			CombatComponent->RouteComboWindowBegin(FHACF_ComboWindowKey::FromBranchingPoint(Payload), WindowTag);
 		}
 	}
 }
 
 void UHACF_AnimNotifyState_ComboWindow::BranchingPointNotifyEnd(FBranchingPointNotifyPayload& Payload)
 {
-	if (UHACF_CombatGameplayAbility* Ability = FindActiveCombatAbility(Payload.SkelMeshComponent))
+	if (UHACF_CombatComponent* CombatComponent = FindCombatComponent(Payload.SkelMeshComponent))
 	{
-		Ability->CloseComboWindow(FHACF_ComboWindowKey::FromBranchingPoint(Payload));
+		CombatComponent->RouteComboWindowEnd(FHACF_ComboWindowKey::FromBranchingPoint(Payload));
 	}
 
 	FAnimNotifyEventReference EventReference;
@@ -67,10 +66,8 @@ void UHACF_AnimNotifyState_ComboWindow::BranchingPointNotifyEnd(FBranchingPointN
 	Super::NotifyEnd(Payload.SkelMeshComponent, Payload.SequenceAsset, EventReference);
 }
 
-UHACF_CombatGameplayAbility* UHACF_AnimNotifyState_ComboWindow::FindActiveCombatAbility(USkeletalMeshComponent* MeshComp)
+UHACF_CombatComponent* UHACF_AnimNotifyState_ComboWindow::FindCombatComponent(USkeletalMeshComponent* MeshComp)
 {
 	AActor* Owner = IsValid(MeshComp) ? MeshComp->GetOwner() : nullptr;
-	UHACF_CombatComponent* CombatComponent = Owner ? Owner->FindComponentByClass<UHACF_CombatComponent>() : nullptr;
-
-	return CombatComponent ? Cast<UHACF_CombatGameplayAbility>(CombatComponent->GetActiveAttackAbility()) : nullptr;
+	return Owner ? Owner->FindComponentByClass<UHACF_CombatComponent>() : nullptr;
 }

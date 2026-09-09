@@ -8,33 +8,24 @@
 #include "GameFramework/Pawn.h"
 #include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 
-bool UHACF_CombatGameplayAbility::HandleComboInput(const FHACF_ActionWindowInputContext& Context)
+void UHACF_CombatGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-	if (!IsActive() || ComboWindows.FindKey(Context.WindowHandle) == nullptr)
-	{
-		return false;
-	}
-
-	const FHACF_ComboNode* Node = IsValid(AttackComboDefinition) ? AttackComboDefinition->FindNode(CurrentComboNodeId) : nullptr;
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (!Node || !ASC)
-	{
-		return false;
-	}
-
-	const FHACF_ComboTransition* Transition = Node->FindTransition(Context.WindowTag, Context.InputTag, ASC->GetOwnedGameplayTags());
-	if (!Transition)
-	{
-		return false;
-	}
-
-	// 기존 전이 동작 유지
-	AdvanceCombo(Transition);
-	return true;
+	UnbindComboWindowRoute();
+	UnbindAttackMontageCallbacks();
+	
+	CloseAllComboWindows();
+	CurrentComboNodeId = NAME_None;
+	
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-void UHACF_CombatGameplayAbility::StartAttack(FName NodeId)
+void UHACF_CombatGameplayAbility::PlayComboNode(FName NodeId)
 {
+	if (!IsActive())
+	{
+		return;
+	}
+
 	UCharacterMoverComponent* CharacterMover = GetAvatarPawnFromActorInfo()->FindComponentByClass<UCharacterMoverComponent>();
 	if (!CharacterMover)
 	{
@@ -71,15 +62,47 @@ void UHACF_CombatGameplayAbility::StartAttack(FName NodeId)
 		   true,       // StopAllMontages
 		   -1.0f);     // 기본 BlendOut 사용
 	
+	if (!IsValid(AttackMontageProxy))
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+		return;
+	}
+
 	ActiveAttackMontageProxy = AttackMontageProxy;
-	GetCombatComponent()->SetActiveAttackAbility(this);
+	
+	BindComboWindowRoute();
 	AttackMontageProxy->OnCompleted.AddDynamic(this, &ThisClass::OnEndAbility);
 	AttackMontageProxy->OnInterrupted.AddDynamic(this, &ThisClass::OnEndAbility);
 }
 
-void UHACF_CombatGameplayAbility::OpenComboWindow(int32 NotifyInstanceId, const FGameplayTag& WindowTag)
+void UHACF_CombatGameplayAbility::ExecuteComboTransition(const FHACF_ComboTransition* ComboTransition)
 {
-	OpenComboWindow(FHACF_ComboWindowKey::FromQueuedNotify(NotifyInstanceId), WindowTag);
+	PlayComboNode(ComboTransition->TargetNodeId);
+}
+
+bool UHACF_CombatGameplayAbility::HandleComboInput(const FHACF_ActionWindowInputContext& Context)
+{
+	if (!IsActive() || ComboWindows.FindKey(Context.WindowHandle) == nullptr)
+	{
+		return false;
+	}
+
+	const FHACF_ComboNode* Node = IsValid(AttackComboDefinition) ? AttackComboDefinition->FindNode(CurrentComboNodeId) : nullptr;
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	if (!Node || !ASC)
+	{
+		return false;
+	}
+
+	const FHACF_ComboTransition* Transition = Node->FindTransition(Context.WindowTag, Context.InputTag, ASC->GetOwnedGameplayTags());
+	if (!Transition)
+	{
+		return false;
+	}
+
+	// 기존 전이 동작 유지
+	ExecuteComboTransition(Transition);
+	return true;
 }
 
 void UHACF_CombatGameplayAbility::OpenComboWindow(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag)
@@ -112,11 +135,6 @@ void UHACF_CombatGameplayAbility::OpenComboWindow(const FHACF_ComboWindowKey& No
 	CombatComponent->ProcessBufferedInput();
 }
 
-void UHACF_CombatGameplayAbility::CloseComboWindow(int32 NotifyInstanceId)
-{
-	CloseComboWindow(FHACF_ComboWindowKey::FromQueuedNotify(NotifyInstanceId));
-}
-
 void UHACF_CombatGameplayAbility::CloseComboWindow(const FHACF_ComboWindowKey& NotifyKey)
 {
 	FHACF_ActionWindowHandle ActionWindowHandle;
@@ -142,9 +160,48 @@ void UHACF_CombatGameplayAbility::CloseAllComboWindows()
 	}
 }
 
-void UHACF_CombatGameplayAbility::AdvanceCombo(const FHACF_ComboTransition* ComboTransition)
+void UHACF_CombatGameplayAbility::BindComboWindowRoute()
 {
-	StartAttack(ComboTransition->TargetNodeId);
+	UnbindComboWindowRoute();
+
+	UHACF_CombatComponent* CombatComponent = GetCombatComponent();
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	ComboWindowRouteHandle = CombatComponent->BindComboWindowRoute(
+		FHACF_ComboWindowBeginHandler::CreateUObject(this, &ThisClass::HandleComboWindowBegin),
+		FHACF_ComboWindowEndHandler::CreateUObject(this, &ThisClass::HandleComboWindowEnd));
+
+	if (ComboWindowRouteHandle.IsValid())
+	{
+		BoundComboWindowRouteComponent = CombatComponent;
+	}
+}
+
+void UHACF_CombatGameplayAbility::UnbindComboWindowRoute()
+{
+	if (UHACF_CombatComponent* CombatComponent = BoundComboWindowRouteComponent.Get())
+	{
+		CombatComponent->UnbindComboWindowRoute(ComboWindowRouteHandle);
+	}
+
+	ComboWindowRouteHandle.Reset();
+	BoundComboWindowRouteComponent.Reset();
+}
+
+void UHACF_CombatGameplayAbility::HandleComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag)
+{
+	if (IsActive())
+	{
+		OpenComboWindow(NotifyKey, WindowTag);
+	}
+}
+
+void UHACF_CombatGameplayAbility::HandleComboWindowEnd(const FHACF_ComboWindowKey& NotifyKey)
+{
+	CloseComboWindow(NotifyKey);
 }
 
 void UHACF_CombatGameplayAbility::UnbindAttackMontageCallbacks()
@@ -159,19 +216,4 @@ void UHACF_CombatGameplayAbility::UnbindAttackMontageCallbacks()
 	ActiveAttackMontageProxy->OnInterrupted.RemoveDynamic(this, &ThisClass::OnEndAbility);
 
 	ActiveAttackMontageProxy = nullptr;
-}
-
-void UHACF_CombatGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	UnbindAttackMontageCallbacks();
-
-	if (UHACF_CombatComponent* CombatComponent = GetCombatComponent())
-	{
-		CombatComponent->ClearActiveAttackAbility(this);
-	}
-	
-	CloseAllComboWindows();
-	CurrentComboNodeId = NAME_None;
-	
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
