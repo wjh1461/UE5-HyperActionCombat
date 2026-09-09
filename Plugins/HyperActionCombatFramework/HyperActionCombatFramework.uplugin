@@ -21,6 +21,11 @@
 			"LoadingPhase": "Default"
 		},
 		{
+			"Name": "HyperActionCombatFrameworkEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit"
+		},
+		{
 			"Name": "HyperActionCombatFrameworkTests",
 			"Type": "UncookedOnly",
 			"LoadingPhase": "PostDefault"

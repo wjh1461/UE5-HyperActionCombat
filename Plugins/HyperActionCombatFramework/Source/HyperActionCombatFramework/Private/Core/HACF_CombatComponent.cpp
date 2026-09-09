@@ -8,7 +8,6 @@
 #include "HACF_GameplayTags.h"
 #include "HACF_LogChannels.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
-#include "Components/GameFrameworkComponentManager.h"
 #include "GameFramework/PlayerState.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
@@ -57,149 +56,6 @@ void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const
-{
-	OutASC = nullptr;
-	OutOwnerActor = nullptr;
-
-	APawn* Pawn = GetPawn<APawn>();
-	if (!Pawn)
-	{
-		return false;
-	}
-	
-	// PlayerState에 AbilitySystemComponent가 있는 경우. 플레이어용
-	if (APlayerState* PlayerState = GetPlayerState<APlayerState>())
-	{
-		if (const IAbilitySystemInterface* Provider = Cast<IAbilitySystemInterface>(PlayerState))
-		{
-			OutASC = Provider->GetAbilitySystemComponent();
-			OutOwnerActor = PlayerState;
-			
-			return IsValid(OutASC);
-		}
-	}
-	
-	// Pawn에 AbilitySystemComponent가 있는 경우(PlayerState 대신). NPC, 적
-	if (const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(Pawn))
-	{
-		if (UAbilitySystemComponent* PawnASC = AbilitySystemProvider->GetAbilitySystemComponent())
-		{
-			OutASC = PawnASC;
-			OutOwnerActor = Pawn;
-			
-			return IsValid(OutASC);
-		}
-	}
-	
-	return false;
-}
-
-bool UHACF_CombatComponent::TryConsumeBufferedInput()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return false;
-	}
-
-	const double CurrentTime = World->GetTimeSeconds();
-	InputBuffer.RemoveExpired(CurrentTime);
-
-	const FHACF_BufferedInput* FoundInput = InputBuffer.Find();
-	
-	if (!FoundInput)
-	{
-		return false;
-	}
-
-	const FHACF_ActionWindow* FoundWindow = ActionWindows.FindHighestPriorityAccepting(FoundInput->InputTag);
-	
-	if (!FoundWindow)
-	{
-		return false;
-	}
-
-	// 이후 호출이 Buffer나 Window를 변경할 수 있으므로
-	// 포인터를 장기간 유지하지 않고 값을 복사한다.
-	const FHACF_BufferedInput BufferedInput = *FoundInput;
-	const FHACF_ActionWindowHandle WindowHandle = FoundWindow->Handle;
-
-	FHACF_ActionWindowInputContext ActionWindowInputContext;
-	ActionWindowInputContext.WindowHandle = WindowHandle;
-	ActionWindowInputContext.WindowTag = FoundWindow->WindowTag;
-	ActionWindowInputContext.InputTag = BufferedInput.InputTag;
-	ActionWindowInputContext.InputTime = BufferedInput.InputTime;
-	
-	const bool bAccepted  = TryDispatchActionWindowInput(ActionWindowInputContext);
-	if (!bAccepted )
-	{
-		return false;
-	}
-
-	return InputBuffer.Consume(BufferedInput.Sequence);
-}
-
-bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext)
-{
-	if (bIsDispatchingBufferedInput)
-	{
-		return false;
-	}
-
-	TGuardValue<bool> DispatchGuard(bIsDispatchingBufferedInput, true);
-	
-	const FHACF_ActionWindowInputHandler FoundHandler = ActionWindowInputHandlers.FindRef(ActionWindowInputContext.WindowHandle);
-
-	if (!FoundHandler.IsBound())
-	{
-		// 죽은 window 정리 또는 다음 window 탐색
-		return false;
-	}
-	
-	return FoundHandler.Execute(ActionWindowInputContext);
-}
-
-void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
-{
-	ASC->AbilitySpecInputPressed(AbilitySpec);
-	
-	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
-	{
-		return;
-	}
-	
-	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
-	if (!ensure(Instance))
-	{
-		return;
-	}
-	
-	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
-
-	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, OriginalPredictionKey);
-}
-
-void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec)
-{
-	ASC->AbilitySpecInputReleased(AbilitySpec);
-	
-	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
-	{
-		return;
-	}
-	
-	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
-	if (!ensure(Instance))
-	{
-		return;
-	}
-	
-	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
-
-	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, OriginalPredictionKey);
-}
-
 bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
 	APawn* Pawn = GetPawn<APawn>();
@@ -234,8 +90,7 @@ bool UHACF_CombatComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 	return false;
 }
 
-void UHACF_CombatComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState,
-	FGameplayTag DesiredState)
+void UHACF_CombatComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
 {
 	if (CurrentState == HACF_GameplayTags::InitState_DataAvailable &&
 		DesiredState == HACF_GameplayTags::InitState_DataInitialized)
@@ -419,7 +274,6 @@ void UHACF_CombatComponent::AbilityInputTagReleased(const FGameplayTag& InputTag
 		}
 	}
 }
-
 
 void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePaused)
 {
@@ -615,11 +469,6 @@ int32 UHACF_CombatComponent::CloseAllActionWindowsFromSource(const UObject* Sour
 	return ClosedCount;
 }
 
-bool UHACF_CombatComponent::IsActionWindowActive(FHACF_ActionWindowHandle Handle) const
-{
-	return ActionWindows.Contains(Handle);
-}
-
 void UHACF_CombatComponent::ClearActionWindows()
 {
 	ActionWindows.Clear();
@@ -628,13 +477,17 @@ void UHACF_CombatComponent::ClearActionWindows()
 	ActionWindowInputHandlers.Reset();
 }
 
+bool UHACF_CombatComponent::IsActionWindowActive(FHACF_ActionWindowHandle Handle) const
+{
+	return ActionWindows.Contains(Handle);
+}
+
 bool UHACF_CombatComponent::ProcessBufferedInput()
 {
 	return TryConsumeBufferedInput();
 }
 
-FHACF_ComboWindowRouteHandle UHACF_CombatComponent::BindComboWindowRoute(
-	FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler)
+FHACF_ComboWindowRouteHandle UHACF_CombatComponent::BindComboWindowRoute(FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler)
 {
 	if (!BeginHandler.IsBound() || !EndHandler.IsBound())
 	{
@@ -689,4 +542,147 @@ void UHACF_CombatComponent::RouteComboWindowEnd(const FHACF_ComboWindowKey& Noti
 
 	const FHACF_ComboWindowEndHandler Handler = ComboWindowEndHandler;
 	Handler.ExecuteIfBound(NotifyKey);
+}
+
+bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const
+{
+	OutASC = nullptr;
+	OutOwnerActor = nullptr;
+
+	APawn* Pawn = GetPawn<APawn>();
+	if (!Pawn)
+	{
+		return false;
+	}
+	
+	// PlayerState에 AbilitySystemComponent가 있는 경우. 플레이어용
+	if (APlayerState* PlayerState = GetPlayerState<APlayerState>())
+	{
+		if (const IAbilitySystemInterface* Provider = Cast<IAbilitySystemInterface>(PlayerState))
+		{
+			OutASC = Provider->GetAbilitySystemComponent();
+			OutOwnerActor = PlayerState;
+			
+			return IsValid(OutASC);
+		}
+	}
+	
+	// Pawn에 AbilitySystemComponent가 있는 경우(PlayerState 대신). NPC, 적
+	if (const IAbilitySystemInterface* AbilitySystemProvider = Cast<IAbilitySystemInterface>(Pawn))
+	{
+		if (UAbilitySystemComponent* PawnASC = AbilitySystemProvider->GetAbilitySystemComponent())
+		{
+			OutASC = PawnASC;
+			OutOwnerActor = Pawn;
+			
+			return IsValid(OutASC);
+		}
+	}
+	
+	return false;
+}
+
+bool UHACF_CombatComponent::TryConsumeBufferedInput()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	const double CurrentTime = World->GetTimeSeconds();
+	InputBuffer.RemoveExpired(CurrentTime);
+
+	const FHACF_BufferedInput* FoundInput = InputBuffer.Find();
+	
+	if (!FoundInput)
+	{
+		return false;
+	}
+
+	const FHACF_ActionWindow* FoundWindow = ActionWindows.FindHighestPriorityAccepting(FoundInput->InputTag);
+	
+	if (!FoundWindow)
+	{
+		return false;
+	}
+
+	// 이후 호출이 Buffer나 Window를 변경할 수 있으므로
+	// 포인터를 장기간 유지하지 않고 값을 복사한다.
+	const FHACF_BufferedInput BufferedInput = *FoundInput;
+	const FHACF_ActionWindowHandle WindowHandle = FoundWindow->Handle;
+
+	FHACF_ActionWindowInputContext ActionWindowInputContext;
+	ActionWindowInputContext.WindowHandle = WindowHandle;
+	ActionWindowInputContext.WindowTag = FoundWindow->WindowTag;
+	ActionWindowInputContext.InputTag = BufferedInput.InputTag;
+	ActionWindowInputContext.InputTime = BufferedInput.InputTime;
+	
+	const bool bAccepted  = TryDispatchActionWindowInput(ActionWindowInputContext);
+	if (!bAccepted )
+	{
+		return false;
+	}
+
+	return InputBuffer.Consume(BufferedInput.Sequence);
+}
+
+bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext)
+{
+	if (bIsDispatchingBufferedInput)
+	{
+		return false;
+	}
+
+	TGuardValue<bool> DispatchGuard(bIsDispatchingBufferedInput, true);
+	
+	const FHACF_ActionWindowInputHandler FoundHandler = ActionWindowInputHandlers.FindRef(ActionWindowInputContext.WindowHandle);
+
+	if (!FoundHandler.IsBound())
+	{
+		// 죽은 window 정리 또는 다음 window 탐색
+		return false;
+	}
+	
+	return FoundHandler.Execute(ActionWindowInputContext);
+}
+
+void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
+{
+	ASC->AbilitySpecInputPressed(AbilitySpec);
+	
+	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, OriginalPredictionKey);
+}
+
+void UHACF_CombatComponent::DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec)
+{
+	ASC->AbilitySpecInputReleased(AbilitySpec);
+	
+	if (!Cast<UHACF_GameplayAbility>(AbilitySpec.Ability))
+	{
+		return;
+	}
+	
+	const UGameplayAbility* Instance = AbilitySpec.GetPrimaryInstance();
+	if (!ensure(Instance))
+	{
+		return;
+	}
+	
+	const FPredictionKey OriginalPredictionKey = Instance->GetCurrentActivationInfo().GetActivationPredictionKey();
+
+	ASC->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, OriginalPredictionKey);
 }
