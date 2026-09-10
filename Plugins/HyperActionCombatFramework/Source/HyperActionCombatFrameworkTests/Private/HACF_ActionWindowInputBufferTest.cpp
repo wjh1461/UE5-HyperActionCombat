@@ -1,4 +1,5 @@
 #include "CQTest.h"
+#include "AbilitySystemComponent.h"
 #include "Components/ActorTestSpawner.h"
 #include "Core/HACF_CombatComponent.h"
 
@@ -9,15 +10,21 @@ namespace HyperActionCombatFrameworkTests
 		FActorTestSpawner Spawner;
 		APawn* DummyPawn = nullptr;
 		UHACF_CombatComponent* CombatComponent = nullptr;
+		UAbilitySystemComponent* ASC = nullptr;
 
 		BEFORE_EACH()
 		{
 			DummyPawn = &Spawner.SpawnActor<APawn>();
 			ASSERT_THAT(IsNotNull(DummyPawn));
 
+			ASC = NewObject<UAbilitySystemComponent>(DummyPawn, TEXT("AbilitySystemComponent"));
+			ASC->RegisterComponent();
+			DummyPawn->AddInstanceComponent(ASC);
+
 			CombatComponent = NewObject<UHACF_CombatComponent>(DummyPawn, TEXT("CombatComponent"));
 			CombatComponent->RegisterComponent();
 			DummyPawn->AddInstanceComponent(CombatComponent);
+			CombatComponent->InitializeWithASC(ASC, DummyPawn);
 		}
 
 		TEST_METHOD(ProcessBufferedInput_ConsumesMatchingBufferedInputExactlyOnce)
@@ -26,6 +33,7 @@ namespace HyperActionCombatFrameworkTests
 			const FGameplayTag WindowTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 
 			CombatComponent->RecordBufferedInput(InputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 
 			FHACF_ActionWindowDefinition Definition;
 			Definition.WindowTag = WindowTag;
@@ -73,6 +81,7 @@ namespace HyperActionCombatFrameworkTests
 
 			CombatComponent->RecordBufferedInput(IncompatibleInputTag);
 			CombatComponent->RecordBufferedInput(CompatibleInputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 
 			FHACF_ActionWindowDefinition CompatibleWindowDefinition;
 			CompatibleWindowDefinition.AcceptedInputTags.AddTag(CompatibleInputTag);
@@ -120,6 +129,7 @@ namespace HyperActionCombatFrameworkTests
 
 			CombatComponent->RecordBufferedInput(FirstInputTag);
 			CombatComponent->RecordBufferedInput(SecondInputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 
 			FHACF_ActionWindowDefinition FirstWindowDefinition;
 			FirstWindowDefinition.AcceptedInputTags.AddTag(FirstInputTag);
@@ -204,6 +214,8 @@ namespace HyperActionCombatFrameworkTests
 
 			int32 LowPriorityDispatchCount = 0;
 			int32 HighPriorityDispatchCount = 0;
+			CombatComponent->RecordBufferedInput(InputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 
 			CombatComponent->OpenActionWindow(LowPriorityDefinition, DummyPawn,
 				FHACF_ActionWindowInputHandler::CreateLambda(
@@ -220,8 +232,6 @@ namespace HyperActionCombatFrameworkTests
 						return true;
 					}));
 
-			CombatComponent->RecordBufferedInput(InputTag);
-
 			ASSERT_THAT(IsTrue(CombatComponent->ProcessBufferedInput()));
 			ASSERT_THAT(AreEqual(0, LowPriorityDispatchCount));
 			ASSERT_THAT(AreEqual(1, HighPriorityDispatchCount));
@@ -236,6 +246,9 @@ namespace HyperActionCombatFrameworkTests
 
 			int32 FirstDispatchCount = 0;
 			int32 SecondDispatchCount = 0;
+			CombatComponent->RecordBufferedInput(InputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
 			const FHACF_ActionWindowHandle FirstHandle = CombatComponent->OpenActionWindow(Definition, DummyPawn,
 				FHACF_ActionWindowInputHandler::CreateLambda(
 					[&FirstDispatchCount](const FHACF_ActionWindowInputContext&)
@@ -251,14 +264,13 @@ namespace HyperActionCombatFrameworkTests
 						return true;
 					}));
 
-			CombatComponent->RecordBufferedInput(InputTag);
 			ASSERT_THAT(IsTrue(CombatComponent->ProcessBufferedInput()));
 			ASSERT_THAT(AreEqual(1, FirstDispatchCount));
 			ASSERT_THAT(AreEqual(0, SecondDispatchCount));
 
 			ASSERT_THAT(IsTrue(CombatComponent->CloseActionWindow(FirstHandle)));
 			CombatComponent->RecordBufferedInput(InputTag);
-			ASSERT_THAT(IsTrue(CombatComponent->ProcessBufferedInput()));
+			CombatComponent->ProcessAbilityInput(0.1f, false);
 			ASSERT_THAT(AreEqual(1, SecondDispatchCount));
 		}
 
@@ -272,6 +284,10 @@ namespace HyperActionCombatFrameworkTests
 			int32 DispatchCount = 0;
 			bool bCloseSucceeded = false;
 			FHACF_ActionWindowHandle Handle;
+
+			CombatComponent->RecordBufferedInput(InputTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
 			Handle = CombatComponent->OpenActionWindow(Definition, DummyPawn,
 				FHACF_ActionWindowInputHandler::CreateLambda(
 					[this, &DispatchCount, &bCloseSucceeded, &Handle](const FHACF_ActionWindowInputContext&)
@@ -280,8 +296,6 @@ namespace HyperActionCombatFrameworkTests
 						bCloseSucceeded = CombatComponent->CloseActionWindow(Handle);
 						return true;
 					}));
-
-			CombatComponent->RecordBufferedInput(InputTag);
 
 			ASSERT_THAT(IsTrue(CombatComponent->ProcessBufferedInput()));
 			ASSERT_THAT(AreEqual(1, DispatchCount));

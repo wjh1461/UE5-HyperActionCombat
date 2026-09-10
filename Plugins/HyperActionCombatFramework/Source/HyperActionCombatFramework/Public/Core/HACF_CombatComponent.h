@@ -60,7 +60,7 @@ public:
 	
 	//~Begin Buffered Input / Action Windows
 	// 입력 버퍼 윈도우 처리
-	uint32 RecordBufferedInput(const FGameplayTag& InputTag);
+	void RecordBufferedInput(const FGameplayTag& InputTag);
 	
 	// ActionWindow를 생성 후 저장하고 Handle을 반환
 	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler);
@@ -106,13 +106,9 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
-	
-	// Press 입력으로 생성된 버퍼 Sequence.
-	// 같은 입력으로 어빌리티 활성화에 성공하면 해당 Sequence를 제거한다.
-	TMap<FGameplayAbilitySpecHandle, uint32> InputPressedBufferSequences;
 
-	// 어빌리티 활성화 여부를 판정하는 동안 ActionWindow가 먼저 가져가면 안 되는 Sequence.
-	TSet<uint32> ReservedBufferedInputSequences;
+	// 이번 입력 처리에서 어빌리티 활성화 여부를 판정한 뒤 실제 버퍼에 기록할 Press 입력.
+	TArray<FHACF_BufferedInput> PendingBufferedInputs;
 
 	// 입력 버퍼 시스템
 	FHACF_InputBuffer InputBuffer;

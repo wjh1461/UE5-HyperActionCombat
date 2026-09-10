@@ -60,6 +60,22 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsTrue(FoundInput->InputTime == 1.0f));
 		}
 
+		TEST_METHOD(Push_EqualTimesPreservesInsertionOrder)
+		{
+			FHACF_InputBuffer Buffer;
+
+			FHACF_BufferedInput Input;
+			Input.InputTime = 1.0;
+			Input.ExpirationTime = 2.0;
+
+			const uint32 FirstSequence = Buffer.Push(Input);
+			const uint32 SecondSequence = Buffer.Push(Input);
+
+			ASSERT_THAT(AreEqual(FirstSequence, Buffer.Find()->Sequence));
+			ASSERT_THAT(IsTrue(Buffer.Consume(FirstSequence)));
+			ASSERT_THAT(AreEqual(SecondSequence, Buffer.Find()->Sequence));
+		}
+
 		TEST_METHOD(Consume_RemovesMatchingSequence)
 		{
 			FHACF_InputBuffer Buffer;

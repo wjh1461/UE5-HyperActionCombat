@@ -185,8 +185,7 @@ void UHACF_CombatComponent::UninitializeFromASC()
 	ComboWindowEndHandler.Unbind();
 	ActiveComboWindowRouteId = 0;
 	
-	InputPressedBufferSequences.Reset();
-	ReservedBufferedInputSequences.Reset();
+	PendingBufferedInputs.Reset();
 	
 	if (!ASC)
 	{
@@ -238,7 +237,7 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 			return;
 		}
 		
-		const uint32 BufferedInputSequence = RecordBufferedInput(InputTag);
+		RecordBufferedInput(InputTag);
 		
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
@@ -249,11 +248,6 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 				{
 					InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
 					InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
-					
-					if (BufferedInputSequence != 0)
-					{
-						InputPressedBufferSequences.Add(AbilitySpec.Handle, BufferedInputSequence);
-					}
 				}
 			}
 		}
@@ -290,16 +284,6 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	if (!IsValid(ASC))
 	{
 		return;
-	}
-	
-	TSet<uint32> ThisFrameReservedSequences;
-	for (const TPair<FGameplayAbilitySpecHandle, uint32>& Pair : InputPressedBufferSequences)
-	{
-		if (Pair.Value != 0)
-		{
-			ThisFrameReservedSequences.Add(Pair.Value);
-			ReservedBufferedInputSequences.Add(Pair.Value);
-		}
 	}
 	
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
@@ -346,37 +330,39 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 		}
 	}
 	
-	TSet<uint32> ActivationConsumedSequences;
-
 	// 어빌리티 실행
 	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : AbilitiesToActivate)
 	{
+		FGameplayTagContainer AbilityInputTags;
+		if (const FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(AbilitySpecHandle))
+		{
+			AbilityInputTags = AbilitySpec->GetDynamicSpecSourceTags();
+		}
+
 		const bool bActivated = ASC->TryActivateAbility(AbilitySpecHandle);
 		if (!bActivated)
 		{
 			continue;
 		}
 
-		if (const uint32* InputSequence = InputPressedBufferSequences.Find(AbilitySpecHandle))
-		{
-			if (*InputSequence != 0)
+		const int32 PendingInputIndex = PendingBufferedInputs.IndexOfByPredicate(
+			[&AbilityInputTags](const FHACF_BufferedInput& PendingInput)
 			{
-				ActivationConsumedSequences.Add(*InputSequence);
-			}
+				return AbilityInputTags.HasTagExact(PendingInput.InputTag);
+			});
+
+		if (PendingInputIndex != INDEX_NONE)
+		{
+			PendingBufferedInputs.RemoveAt(PendingInputIndex);
 		}
 	}
 	
-	// 활성화가 소비한 입력은 아직 예약 상태일 때 제거한다.
-	for (const uint32 Sequence : ActivationConsumedSequences)
+	// 활성화되지 않은 Press 입력만 이 시점부터 ActionWindow가 소비할 수 있다.
+	for (const FHACF_BufferedInput& PendingInput : PendingBufferedInputs)
 	{
-		InputBuffer.Consume(Sequence);
+		InputBuffer.Push(PendingInput);
 	}
-
-	// 활성화 여부 판정이 끝났으므로 예약을 해제한다.
-	for (const uint32 Sequence : ThisFrameReservedSequences)
-	{
-		ReservedBufferedInputSequences.Remove(Sequence);
-	}
+	PendingBufferedInputs.Reset();
 	
 	// Released
 	for (const FGameplayAbilitySpecHandle& SpecHandle : InputReleasedSpecHandles)
@@ -397,19 +383,17 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
-	
-	InputPressedBufferSequences.Reset();
 
-	// 최초 활성화에 성공한 입력은 이미 제거됐다. 남은 입력만 현재 ActionWindow가 소비할 수 있다.
+	// 최초 활성화에 성공하지 않은 입력만 현재 ActionWindow가 소비할 수 있다.
 	TryConsumeBufferedInput();
 }
 
-uint32 UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
+void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 {    
 	const UWorld* World = GetWorld();
 	if (!World || !InputTag.IsValid())
 	{
-		return 0;
+		return;
 	}
 	
 	const double CurrentTime = World->GetTimeSeconds();
@@ -420,8 +404,7 @@ uint32 UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 	BufferedInput.ExpirationTime = CurrentTime + InputBufferDuration;
 	
 	InputBuffer.RemoveExpired(CurrentTime);
-	
-	return InputBuffer.Push(BufferedInput); 
+	PendingBufferedInputs.Add(BufferedInput);
 }
 
 FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler)
@@ -593,11 +576,6 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 		return false;
 	}
 	
-	if (ReservedBufferedInputSequences.Contains(FoundInput->Sequence))
-	{
-		return false;
-	}
-
 	const FHACF_BufferedInput BufferedInput = *FoundInput;
 	FHACF_ActionWindowDispatchTarget DispatchTarget;
 	if (!ActionWindows.FindDispatchTarget(BufferedInput.InputTag, BufferedInput.InputTime, DispatchTarget))

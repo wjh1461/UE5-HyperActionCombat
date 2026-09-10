@@ -311,6 +311,7 @@ namespace HyperActionCombatFrameworkTests
 		{
 			const int32 OldMontageID = First.Mesh->GetAnimInstance()->GetActiveInstanceForMontage(Montage)->GetInstanceID();
 			First.Combat->RecordBufferedInput(InputTag);
+			First.Combat->ProcessAbilityInput(0.1f, false);
 			
 			FBranchingPointNotifyPayload Payload(First.Mesh, Montage, &Event, OldMontageID);
 			Notify->BranchingPointNotifyBegin(Payload);
