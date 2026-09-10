@@ -8,6 +8,7 @@
 
 struct FHACF_BufferedInput;
 struct FHACF_ActionWindowHandle;
+struct FHACF_ActionWindowInputContext;
 
 DECLARE_DELEGATE_RetVal_OneParam(bool, FHACF_ActionWindowInputHandler, const FHACF_ActionWindowInputContext&);
 
@@ -98,33 +99,6 @@ struct FHACF_ActionWindowDefinition
 	int32 Priority = 0;
 };
 
-struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowContainer
-{
-	FHACF_ActionWindowHandle Open(const FHACF_ActionWindowDefinition& Definition);
-
-	bool Close(FHACF_ActionWindowHandle Handle);
-
-	bool Contains(FHACF_ActionWindowHandle Handle) const;
-
-	const FHACF_ActionWindow* FindHighestPriority() const;
-	const FHACF_ActionWindow* FindHighestPriorityAccepting(const FGameplayTag& InputTag) const;
-
-	void Clear();
-
-	bool IsEmpty() const
-	{
-		return Windows.IsEmpty();
-	}
-
-	int32 Num() const
-	{
-		return Windows.Num();
-	}
-
-private:
-	TArray<FHACF_ActionWindow> Windows;
-};
-
 /**
  * 델리게이트 전용 Context 구조체
  */
@@ -144,4 +118,51 @@ struct FHACF_ActionWindowInputContext
 
 	UPROPERTY(BlueprintReadOnly)
 	double InputTime = 0.0;
+};
+
+/**
+ * ActionWindow handler를 호출하기 전에 복사하는 dispatch 정보.
+ * Handler가 실행 중 Window 컨테이너를 변경해도 이 값은 유효하다.
+ */
+struct FHACF_ActionWindowDispatchTarget
+{
+	FHACF_ActionWindowInputContext Context;
+	FHACF_ActionWindowInputHandler Handler;
+};
+
+struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ActionWindowContainer
+{
+	FHACF_ActionWindowHandle Open(const FHACF_ActionWindowDefinition& Definition);
+	FHACF_ActionWindowHandle Open(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler);
+
+	bool Close(FHACF_ActionWindowHandle Handle);
+	int32 CloseAllFromSource(const UObject* Source);
+
+	bool Contains(FHACF_ActionWindowHandle Handle) const;
+
+	const FHACF_ActionWindow* FindHighestPriority() const;
+	const FHACF_ActionWindow* FindHighestPriorityAccepting(const FGameplayTag& InputTag) const;
+	bool FindDispatchTarget(const FGameplayTag& InputTag, double InputTime, FHACF_ActionWindowDispatchTarget& OutTarget) const;
+
+	void Clear();
+
+	bool IsEmpty() const
+	{
+		return Entries.IsEmpty();
+	}
+
+	int32 Num() const
+	{
+		return Entries.Num();
+	}
+
+private:
+	struct FHACF_ActionWindowEntry
+	{
+		FHACF_ActionWindow Window;
+		TOptional<FObjectKey> Source;
+		FHACF_ActionWindowInputHandler Handler;
+	};
+
+	TArray<FHACF_ActionWindowEntry> Entries;
 };

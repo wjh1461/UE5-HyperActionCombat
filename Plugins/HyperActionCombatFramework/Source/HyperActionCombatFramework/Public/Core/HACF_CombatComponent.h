@@ -93,7 +93,7 @@ protected:
 	bool TryConsumeBufferedInput();
 	
 	// 입력 버퍼 핸들러 처리
-	bool TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext);
+	bool TryDispatchActionWindowInput(const FHACF_ActionWindowDispatchTarget& DispatchTarget);
 	
 	// ASC AbilityInput 이벤트 전달
 	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
@@ -118,13 +118,6 @@ protected:
 	FHACF_InputBuffer InputBuffer;
 	
 	FHACF_ActionWindowContainer ActionWindows;
-	
-	// Source가 소유한 Window 목록
-	TMap<FObjectKey, TSet<FHACF_ActionWindowHandle>> SourceWindowHandles;
-	// Handle로 닫을 때 Source 인덱스도 정리하기 위한 역방향 조회
-	TMap<FHACF_ActionWindowHandle, FObjectKey> ActionWindowSources;
-	
-	TMap<FHACF_ActionWindowHandle, FHACF_ActionWindowInputHandler> ActionWindowInputHandlers;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "HACF|Input")
 	float InputBufferDuration = 0.2f;

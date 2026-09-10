@@ -426,27 +426,7 @@ uint32 UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 
 FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler)
 {
-	const FHACF_ActionWindowHandle Handle = ActionWindows.Open(Definition);
-
-	if (!Handle.IsValid())
-	{
-		return FHACF_ActionWindowHandle();
-	}
-
-	if (IsValid(Source))
-	{
-		const FObjectKey SourceKey(Source);
-
-		SourceWindowHandles
-			.FindOrAdd(SourceKey)
-			.Add(Handle);
-
-		ActionWindowSources.Add(Handle, SourceKey);
-	}
-	
-	ActionWindowInputHandlers.Add(Handle, InputHandler);
-	
-	return Handle;
+	return ActionWindows.Open(Definition, Source, MoveTemp(InputHandler));
 }
 
 bool UHACF_CombatComponent::CloseActionWindow(FHACF_ActionWindowHandle Handle)
@@ -456,27 +436,9 @@ bool UHACF_CombatComponent::CloseActionWindow(FHACF_ActionWindowHandle Handle)
 		return false;
 	}
 	
-	ActionWindowInputHandlers.Remove(Handle);
-
 	if (!ActionWindows.Close(Handle))
 	{
 		return false;
-	}
-
-	// Source 인덱스가 있다면 함께 정리한다.
-	if (const FObjectKey* SourceKey = ActionWindowSources.Find(Handle))
-	{
-		if (TSet<FHACF_ActionWindowHandle>* SourceHandles = SourceWindowHandles.Find(*SourceKey))
-		{
-			SourceHandles->Remove(Handle);
-
-			if (SourceHandles->IsEmpty())
-			{
-				SourceWindowHandles.Remove(*SourceKey);
-			}
-		}
-
-		ActionWindowSources.Remove(Handle);
 	}
 
 	// 높은 우선순위 Window가 닫힌 뒤
@@ -493,27 +455,7 @@ int32 UHACF_CombatComponent::CloseAllActionWindowsFromSource(const UObject* Sour
 		return 0;
 	}
 
-	const FObjectKey SourceKey(Source);
-
-	TSet<FHACF_ActionWindowHandle> Handles;
-	if (!SourceWindowHandles.RemoveAndCopyValue(SourceKey, Handles))
-	{
-		return 0;
-	}
-
-	int32 ClosedCount = 0;
-
-	for (const FHACF_ActionWindowHandle Handle : Handles)
-	{
-		ActionWindowSources.Remove(Handle);
-		
-		ActionWindowInputHandlers.Remove(Handle);
-
-		if (ActionWindows.Close(Handle))
-		{
-			++ClosedCount;
-		}
-	}
+	const int32 ClosedCount = ActionWindows.CloseAllFromSource(Source);
 
 	if (ClosedCount > 0)
 	{
@@ -526,9 +468,6 @@ int32 UHACF_CombatComponent::CloseAllActionWindowsFromSource(const UObject* Sour
 void UHACF_CombatComponent::ClearActionWindows()
 {
 	ActionWindows.Clear();
-	SourceWindowHandles.Reset();
-	ActionWindowSources.Reset();
-	ActionWindowInputHandlers.Reset();
 }
 
 bool UHACF_CombatComponent::IsActionWindowActive(FHACF_ActionWindowHandle Handle) const
@@ -659,26 +598,15 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 		return false;
 	}
 
-	const FHACF_ActionWindow* FoundWindow = ActionWindows.FindHighestPriorityAccepting(FoundInput->InputTag);
-	
-	if (!FoundWindow)
+	const FHACF_BufferedInput BufferedInput = *FoundInput;
+	FHACF_ActionWindowDispatchTarget DispatchTarget;
+	if (!ActionWindows.FindDispatchTarget(BufferedInput.InputTag, BufferedInput.InputTime, DispatchTarget))
 	{
 		return false;
 	}
-
-	// 이후 호출이 Buffer나 Window를 변경할 수 있으므로
-	// 포인터를 장기간 유지하지 않고 값을 복사한다.
-	const FHACF_BufferedInput BufferedInput = *FoundInput;
-	const FHACF_ActionWindowHandle WindowHandle = FoundWindow->Handle;
-
-	FHACF_ActionWindowInputContext ActionWindowInputContext;
-	ActionWindowInputContext.WindowHandle = WindowHandle;
-	ActionWindowInputContext.WindowTag = FoundWindow->WindowTag;
-	ActionWindowInputContext.InputTag = BufferedInput.InputTag;
-	ActionWindowInputContext.InputTime = BufferedInput.InputTime;
 	
-	const bool bAccepted  = TryDispatchActionWindowInput(ActionWindowInputContext);
-	if (!bAccepted )
+	const bool bAccepted = TryDispatchActionWindowInput(DispatchTarget);
+	if (!bAccepted)
 	{
 		return false;
 	}
@@ -686,7 +614,7 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 	return InputBuffer.Consume(BufferedInput.Sequence);
 }
 
-bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowInputContext& ActionWindowInputContext)
+bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindowDispatchTarget& DispatchTarget)
 {
 	if (bIsDispatchingBufferedInput)
 	{
@@ -694,16 +622,13 @@ bool UHACF_CombatComponent::TryDispatchActionWindowInput(const FHACF_ActionWindo
 	}
 
 	TGuardValue<bool> DispatchGuard(bIsDispatchingBufferedInput, true);
-	
-	const FHACF_ActionWindowInputHandler FoundHandler = ActionWindowInputHandlers.FindRef(ActionWindowInputContext.WindowHandle);
 
-	if (!FoundHandler.IsBound())
+	if (!DispatchTarget.Handler.IsBound())
 	{
-		// 죽은 window 정리 또는 다음 window 탐색
 		return false;
 	}
 	
-	return FoundHandler.Execute(ActionWindowInputContext);
+	return DispatchTarget.Handler.Execute(DispatchTarget.Context);
 }
 
 void UHACF_CombatComponent::DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec)
