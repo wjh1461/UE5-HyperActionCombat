@@ -8,9 +8,13 @@
 
 struct FHACF_ActionWindowDefinition;
 
+// 기본은 Immediate. AtSectionEnd, AtAdvanceNotify 사용은 추후 구현
 UENUM(BlueprintType)
 enum class EHACF_ComboTransitionMode : uint8
 {
+    // 즉시 전환
+    Immediate UMETA(DisplayName = "Immediate"),
+    
 	// 같은 몽타주 안에서 현재 Section 끝에 연결.
 	AtSectionEnd UMETA(DisplayName = "At Section End"),
 
@@ -36,7 +40,7 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_ComboTransition
     FName TargetNodeId = NAME_None;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo")
-    EHACF_ComboTransitionMode TransitionMode = EHACF_ComboTransitionMode::AtSectionEnd;
+    EHACF_ComboTransitionMode TransitionMode = EHACF_ComboTransitionMode::Immediate;
 
     // ASC가 모두 보유해야 하는 태그.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo|Conditions")

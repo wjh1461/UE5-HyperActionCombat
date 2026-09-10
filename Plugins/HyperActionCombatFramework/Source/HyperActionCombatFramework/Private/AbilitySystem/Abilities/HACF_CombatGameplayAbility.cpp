@@ -39,12 +39,13 @@ void UHACF_CombatGameplayAbility::PlayComboNode(FName NodeId)
 	
 	UAnimMontage* MontageToPlay = AbilityMontage;
 	FName StartingSection = NAME_None;
-	CurrentComboNodeId = NodeId;
+	float PlayRate = 1.0f;
 	
 	if (const FHACF_ComboNode* CurrentComboNode = AttackComboDefinition->FindNode(NodeId))
 	{
 		MontageToPlay = CurrentComboNode->Montage;
 		StartingSection = CurrentComboNode->StartSection;
+		PlayRate = CurrentComboNode->PlayRate;
 	}
 	
 	CloseAllComboWindows();
@@ -56,7 +57,7 @@ void UHACF_CombatGameplayAbility::PlayComboNode(FName NodeId)
 	   UPlayMoverMontageCallbackProxy::CreateProxyObjectForPlayMoverMontage(
 		   CharacterMover,
 		   MontageToPlay,
-		   1.0f,       // PlayRate
+		   PlayRate,       // PlayRate
 		   0.0f,       // StartingPosition
 		   StartingSection,  // StartingSection
 		   true,       // StopAllMontages
@@ -68,6 +69,7 @@ void UHACF_CombatGameplayAbility::PlayComboNode(FName NodeId)
 		return;
 	}
 
+	CurrentComboNodeId = NodeId;
 	ActiveAttackMontageProxy = AttackMontageProxy;
 	
 	BindComboWindowRoute();

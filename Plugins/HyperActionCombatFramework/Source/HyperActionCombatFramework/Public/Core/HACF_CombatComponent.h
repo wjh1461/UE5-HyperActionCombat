@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "CombatInput/HACF_InputBuffer.h"
-#include "Combat/Combo/HACF_ComboWindowRoute.h"
+#include "GameplayAbilitySpecHandle.h"
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
+#include "CombatInput/HACF_InputBuffer.h"
+#include "Combat/Combo/HACF_ComboWindowRoute.h"
 #include "CombatInput/HACF_ActionWindowTypes.h"
 #include "HACF_CombatComponent.generated.h"
 
 struct FGameplayAbilitySpec;
 class UAbilitySystemComponent;
-struct FGameplayAbilitySpecHandle;
 
 /*
  *
@@ -60,8 +60,9 @@ public:
 	
 	//~Begin Buffered Input / Action Windows
 	// 입력 버퍼 윈도우 처리
-	void RecordBufferedInput(const FGameplayTag& InputTag);
+	uint32 RecordBufferedInput(const FGameplayTag& InputTag);
 	
+	// ActionWindow를 생성 후 저장하고 Handle을 반환
 	FHACF_ActionWindowHandle OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler);
 	bool CloseActionWindow(FHACF_ActionWindowHandle Handle);
 	int32 CloseAllActionWindowsFromSource(const UObject* Source);
@@ -105,6 +106,13 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputPressedSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
+	
+	// Press 입력으로 생성된 버퍼 Sequence.
+	// 같은 입력으로 어빌리티 활성화에 성공하면 해당 Sequence를 제거한다.
+	TMap<FGameplayAbilitySpecHandle, uint32> InputPressedBufferSequences;
+
+	// 어빌리티 활성화 여부를 판정하는 동안 ActionWindow가 먼저 가져가면 안 되는 Sequence.
+	TSet<uint32> ReservedBufferedInputSequences;
 
 	// 입력 버퍼 시스템
 	FHACF_InputBuffer InputBuffer;
