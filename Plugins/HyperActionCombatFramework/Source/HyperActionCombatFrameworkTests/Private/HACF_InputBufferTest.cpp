@@ -38,7 +38,7 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(IsTrue(FoundInput->ExpirationTime == 2.0f));
 		}
 
-		TEST_METHOD(Find_ReturnsOldestInputFirst)
+		TEST_METHOD(FindAndConsume_PreserveInsertionOrderIncludingEqualTimes)
 		{
 			FHACF_InputBuffer Buffer;
 			
@@ -47,33 +47,22 @@ namespace HyperActionCombatFrameworkTests
 			FirstInput.ExpirationTime = 3.0f;
 
 			FHACF_BufferedInput SecondInput;
-			SecondInput.InputTime = 2.0f;
-			SecondInput.ExpirationTime = 4.0f;
+			SecondInput.InputTime = 1.0f;
+			SecondInput.ExpirationTime = 3.0f;
+
+			FHACF_BufferedInput ThirdInput;
+			ThirdInput.InputTime = 2.0f;
+			ThirdInput.ExpirationTime = 4.0f;
 
 			const uint32 FirstSequence = Buffer.Push(FirstInput);
-			Buffer.Push(SecondInput);
-
-			const FHACF_BufferedInput* FoundInput = Buffer.Find();
-			
-			ASSERT_THAT(IsNotNull(FoundInput));
-			ASSERT_THAT(AreEqual(FirstSequence, FoundInput->Sequence));
-			ASSERT_THAT(IsTrue(FoundInput->InputTime == 1.0f));
-		}
-
-		TEST_METHOD(Push_EqualTimesPreservesInsertionOrder)
-		{
-			FHACF_InputBuffer Buffer;
-
-			FHACF_BufferedInput Input;
-			Input.InputTime = 1.0;
-			Input.ExpirationTime = 2.0;
-
-			const uint32 FirstSequence = Buffer.Push(Input);
-			const uint32 SecondSequence = Buffer.Push(Input);
+			const uint32 SecondSequence = Buffer.Push(SecondInput);
+			const uint32 ThirdSequence = Buffer.Push(ThirdInput);
 
 			ASSERT_THAT(AreEqual(FirstSequence, Buffer.Find()->Sequence));
 			ASSERT_THAT(IsTrue(Buffer.Consume(FirstSequence)));
 			ASSERT_THAT(AreEqual(SecondSequence, Buffer.Find()->Sequence));
+			ASSERT_THAT(IsTrue(Buffer.Consume(SecondSequence)));
+			ASSERT_THAT(AreEqual(ThirdSequence, Buffer.Find()->Sequence));
 		}
 
 		TEST_METHOD(Consume_RemovesMatchingSequence)
@@ -114,38 +103,27 @@ namespace HyperActionCombatFrameworkTests
 			ASSERT_THAT(AreEqual(ExistingSequence, Buffer.Find()->Sequence));
 		}
 
-		TEST_METHOD(RemoveExpired_RemovesOnlyExpiredInputs)
+		TEST_METHOD(RemoveExpired_RemovesInputsAtAndBeforeExpirationBoundary)
 		{
 			FHACF_InputBuffer Buffer;
 			
 			FHACF_BufferedInput ExpiredInput;
 			ExpiredInput.ExpirationTime = 2.0f;
 
+			FHACF_BufferedInput BoundaryInput;
+			BoundaryInput.ExpirationTime = 3.0f;
+
 			FHACF_BufferedInput ActiveInput;
 			ActiveInput.ExpirationTime = 4.0f;
 
 			Buffer.Push(ExpiredInput);
+			Buffer.Push(BoundaryInput);
 			const uint32 ActiveSequence = Buffer.Push(ActiveInput);
 
 			Buffer.RemoveExpired(3.0);
 
 			ASSERT_THAT(AreEqual(1, Buffer.Num()));
 			ASSERT_THAT(AreEqual(ActiveSequence, Buffer.Find()->Sequence));
-		}
-
-		TEST_METHOD(RemoveExpired_AtExpirationBoundaryRemovesInput)
-		{
-			FHACF_InputBuffer Buffer;
-			
-			FHACF_BufferedInput Input;
-			Input.ExpirationTime = 2.0f;
-			
-			Buffer.Push(Input);
-
-			Buffer.RemoveExpired(2.0);
-
-			ASSERT_THAT(IsTrue(Buffer.IsEmpty()));
-			ASSERT_THAT(IsTrue(Buffer.Find() == nullptr));
 		}
 
 		TEST_METHOD(Clear_RemovesAllInputs)

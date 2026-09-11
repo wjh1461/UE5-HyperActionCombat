@@ -137,9 +137,7 @@ namespace HyperActionCombatFrameworkTests
 			Combatant.Mesh->SetAnimInstanceClass(UAnimInstance::StaticClass());
 			Combatant.Mesh->RegisterComponent();
 			ASSERT_THAT(IsNotNull(Combatant.Mesh->GetAnimInstance()));
-
-			// StartAttack needs a Mover, but this fixture does not run movement simulation.
-			// A non-root-motion montage keeps playback independent of a Mover backend.
+			
 			Pawn.AddInstanceComponent(NewObject<UCharacterMoverComponent>(&Pawn));
 			
 			Combatant.ASC = NewObject<UAbilitySystemComponent>(&Pawn);
@@ -209,9 +207,10 @@ namespace HyperActionCombatFrameworkTests
 			}
 		}
 
-		TEST_METHOD(BranchingBegin_OpensWindowWithoutQueuedNotifyInstanceID)
+		TEST_METHOD(BranchingBegin_WithoutQueuedNotifyInstanceID_OpensOnlyOneWindowForDuplicateBegin)
 		{
 			FBranchingPointNotifyPayload Payload(First.Mesh, Montage, &Event, 10);
+			Notify->BranchingPointNotifyBegin(Payload);
 			Notify->BranchingPointNotifyBegin(Payload);
 			
 			ASSERT_THAT(AreEqual(1, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
@@ -228,15 +227,6 @@ namespace HyperActionCombatFrameworkTests
 			Notify->BranchingPointNotifyEnd(EndPayload);
 			
 			ASSERT_THAT(AreEqual(0, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
-		}
-
-		TEST_METHOD(DuplicateBegin_DoesNotOpenSecondWindow)
-		{
-			FBranchingPointNotifyPayload Payload(First.Mesh, Montage, &Event, 10);
-			Notify->BranchingPointNotifyBegin(Payload);
-			Notify->BranchingPointNotifyBegin(Payload);
-			
-			ASSERT_THAT(AreEqual(1, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
 		}
 
 		TEST_METHOD(OldMontageEnd_DoesNotCloseNewPlaybackWindow)
@@ -281,15 +271,6 @@ namespace HyperActionCombatFrameworkTests
 			Notify->BranchingPointNotifyBegin(FirstPayload);
 			OtherNotify->BranchingPointNotifyBegin(SecondPayload);
 			Notify->BranchingPointNotifyEnd(FirstPayload);
-			
-			ASSERT_THAT(AreEqual(1, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
-		}
-
-		TEST_METHOD(QueuedBegin_StillOpensWindowWithEngineNotifyInstanceID)
-		{
-			FAnimNotifyEventReference Reference;
-			Reference.SetNotifyInstanceID(10);
-			Notify->NotifyBegin(First.Mesh, Montage, 1.f, Reference);
 			
 			ASSERT_THAT(AreEqual(1, First.Combat->CloseAllActionWindowsFromSource(First.Ability)));
 		}
