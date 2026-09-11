@@ -33,7 +33,6 @@ namespace HyperActionCombatFrameworkTests
 			const FGameplayTag WindowTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
 
 			CombatComponent->RecordBufferedInput(InputTag);
-			CombatComponent->ProcessAbilityInput(0.1f, false);
 
 			FHACF_ActionWindowDefinition Definition;
 			Definition.WindowTag = WindowTag;

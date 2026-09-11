@@ -64,3 +64,16 @@ bool UTestOpensActionWindowOnActivationGameplayAbility::HandleWindowInput(
 	++WindowDispatchCount;
 	return true;
 }
+
+void UTestQueuesSecondaryInputOnActivationGameplayAbility::ActivateAbility(
+	const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (UHACF_CombatComponent* CombatComponent = GetCombatComponent())
+	{
+		CombatComponent->AbilityInputTagPressed(
+			FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary")));
+	}
+}

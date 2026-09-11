@@ -74,7 +74,6 @@ public:
 	bool ProcessBufferedInput();
 	//~End
 	
-	
 	FHACF_ComboWindowRouteHandle BindComboWindowRoute(FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler);
 	bool UnbindComboWindowRoute(FHACF_ComboWindowRouteHandle Handle);
 	void RouteComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag);
@@ -88,6 +87,8 @@ protected:
 	virtual void OnRegister() override;
 	
 	virtual bool ResolveAbilitySystem(UAbilitySystemComponent*& OutASC, AActor*& OutOwnerActor) const;
+
+	uint32 RecordBufferedInputInternal(const FGameplayTag& InputTag);
 	
 	// 입력 버퍼 소비를 위한 메서드
 	bool TryConsumeBufferedInput();
@@ -99,6 +100,7 @@ protected:
 	void DispatchAbilityInputPressed(FGameplayAbilitySpec& AbilitySpec);
 	void DispatchAbilityInputReleased(FGameplayAbilitySpec& AbilitySpec);
 	
+protected:
 	// 물리적/논리적으로 현재 눌린 입력 태그
 	TSet<FGameplayTag> PressedInputTags;
 	
@@ -107,8 +109,12 @@ protected:
 	TArray<FGameplayAbilitySpecHandle> InputHeldSpecHandles;
 	TArray<FGameplayAbilitySpecHandle> InputReleasedSpecHandles;
 
-	// 이번 입력 처리에서 어빌리티 활성화 여부를 판정한 뒤 실제 버퍼에 기록할 Press 입력.
-	TArray<FHACF_BufferedInput> PendingBufferedInputs;
+	// Press 입력으로 생성된 버퍼 Sequence.
+	// 같은 입력으로 어빌리티 활성화에 성공하면 해당 Sequence를 제거한다.
+	TMap<FGameplayAbilitySpecHandle, uint32> InputPressedBufferSequences;
+
+	// 어빌리티 활성화 여부를 판정하기 전까지 ActionWindow가 소비하면 안 되는 입력.
+	TSet<uint32> ReservedBufferedInputSequences;
 
 	// 입력 버퍼 시스템
 	FHACF_InputBuffer InputBuffer;

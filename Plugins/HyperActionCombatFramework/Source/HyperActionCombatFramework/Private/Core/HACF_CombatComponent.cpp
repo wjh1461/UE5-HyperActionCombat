@@ -185,7 +185,8 @@ void UHACF_CombatComponent::UninitializeFromASC()
 	ComboWindowEndHandler.Unbind();
 	ActiveComboWindowRouteId = 0;
 	
-	PendingBufferedInputs.Reset();
+	InputPressedBufferSequences.Reset();
+	ReservedBufferedInputSequences.Reset();
 	
 	if (!ASC)
 	{
@@ -237,7 +238,12 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 			return;
 		}
 		
-		RecordBufferedInput(InputTag);
+		const uint32 BufferedInputSequence = RecordBufferedInputInternal(InputTag);
+		if (BufferedInputSequence != 0)
+		{
+			// ProcessAbilityInput 이전에 Window가 열려도 활성화 원인 입력을 가져가지 못하게 한다.
+			ReservedBufferedInputSequences.Add(BufferedInputSequence);
+		}
 		
 		for (const FGameplayAbilitySpec& AbilitySpec : ASC->GetActivatableAbilities())
 		{
@@ -248,6 +254,11 @@ void UHACF_CombatComponent::AbilityInputTagPressed(const FGameplayTag& InputTag)
 				{
 					InputPressedSpecHandles.AddUnique(AbilitySpec.Handle);
 					InputHeldSpecHandles.AddUnique(AbilitySpec.Handle);
+
+					if (BufferedInputSequence != 0)
+					{
+						InputPressedBufferSequences.Add(AbilitySpec.Handle, BufferedInputSequence);
+					}
 				}
 			}
 		}
@@ -285,6 +296,16 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	{
 		return;
 	}
+
+	// 활성화 콜백에서 새 입력이 들어와도 이번 처리와 함께 지워지지 않도록
+	// 진입 시점의 Press/Release와 원인 Sequence만 분리한다.
+	TArray<FGameplayAbilitySpecHandle> PressedSpecHandles = MoveTemp(InputPressedSpecHandles);
+	InputPressedSpecHandles.Reset();
+	TArray<FGameplayAbilitySpecHandle> ReleasedSpecHandles = MoveTemp(InputReleasedSpecHandles);
+	InputReleasedSpecHandles.Reset();
+	TMap<FGameplayAbilitySpecHandle, uint32> PressedBufferSequences = MoveTemp(InputPressedBufferSequences);
+	InputPressedBufferSequences.Reset();
+	const TSet<uint32> ReservedSequencesToRelease = ReservedBufferedInputSequences;
 	
 	static TArray<FGameplayAbilitySpecHandle> AbilitiesToActivate;
 	AbilitiesToActivate.Reset();
@@ -306,7 +327,7 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	}
 	
 	// Pressed
-	for (const FGameplayAbilitySpecHandle& SpecHandle : InputPressedSpecHandles)
+	for (const FGameplayAbilitySpecHandle& SpecHandle : PressedSpecHandles)
 	{
 		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
 		{
@@ -333,39 +354,26 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 	// 어빌리티 실행
 	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : AbilitiesToActivate)
 	{
-		FGameplayTagContainer AbilityInputTags;
-		if (const FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(AbilitySpecHandle))
-		{
-			AbilityInputTags = AbilitySpec->GetDynamicSpecSourceTags();
-		}
-
 		const bool bActivated = ASC->TryActivateAbility(AbilitySpecHandle);
 		if (!bActivated)
 		{
 			continue;
 		}
 
-		const int32 PendingInputIndex = PendingBufferedInputs.IndexOfByPredicate(
-			[&AbilityInputTags](const FHACF_BufferedInput& PendingInput)
-			{
-				return AbilityInputTags.HasTagExact(PendingInput.InputTag);
-			});
-
-		if (PendingInputIndex != INDEX_NONE)
+		if (const uint32* InputSequence = PressedBufferSequences.Find(AbilitySpecHandle))
 		{
-			PendingBufferedInputs.RemoveAt(PendingInputIndex);
+			InputBuffer.Consume(*InputSequence);
 		}
 	}
 	
-	// 활성화되지 않은 Press 입력만 이 시점부터 ActionWindow가 소비할 수 있다.
-	for (const FHACF_BufferedInput& PendingInput : PendingBufferedInputs)
+	// 활성화 판정이 끝난 입력은 이제 ActionWindow가 소비할 수 있다.
+	for (const uint32 InputSequence : ReservedSequencesToRelease)
 	{
-		InputBuffer.Push(PendingInput);
+		ReservedBufferedInputSequences.Remove(InputSequence);
 	}
-	PendingBufferedInputs.Reset();
 	
 	// Released
-	for (const FGameplayAbilitySpecHandle& SpecHandle : InputReleasedSpecHandles)
+	for (const FGameplayAbilitySpecHandle& SpecHandle : ReleasedSpecHandles)
 	{
 		if (FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromHandle(SpecHandle))
 		{
@@ -381,19 +389,21 @@ void UHACF_CombatComponent::ProcessAbilityInput(float DeltaTime, bool bGamePause
 		}
 	}
 	
-	InputPressedSpecHandles.Reset();
-	InputReleasedSpecHandles.Reset();
-
 	// 최초 활성화에 성공하지 않은 입력만 현재 ActionWindow가 소비할 수 있다.
 	TryConsumeBufferedInput();
 }
 
 void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
+{
+	RecordBufferedInputInternal(InputTag);
+}
+
+uint32 UHACF_CombatComponent::RecordBufferedInputInternal(const FGameplayTag& InputTag)
 {    
 	const UWorld* World = GetWorld();
 	if (!World || !InputTag.IsValid())
 	{
-		return;
+		return 0;
 	}
 	
 	const double CurrentTime = World->GetTimeSeconds();
@@ -404,7 +414,7 @@ void UHACF_CombatComponent::RecordBufferedInput(const FGameplayTag& InputTag)
 	BufferedInput.ExpirationTime = CurrentTime + InputBufferDuration;
 	
 	InputBuffer.RemoveExpired(CurrentTime);
-	PendingBufferedInputs.Add(BufferedInput);
+	return InputBuffer.Push(BufferedInput);
 }
 
 FHACF_ActionWindowHandle UHACF_CombatComponent::OpenActionWindow(const FHACF_ActionWindowDefinition& Definition, const UObject* Source, FHACF_ActionWindowInputHandler InputHandler)
@@ -560,7 +570,7 @@ bool UHACF_CombatComponent::ResolveAbilitySystem(UAbilitySystemComponent*& OutAS
 
 bool UHACF_CombatComponent::TryConsumeBufferedInput()
 {
-	UWorld* World = GetWorld();
+	const UWorld* World = GetWorld();
 	if (!World)
 	{
 		return false;
@@ -572,6 +582,11 @@ bool UHACF_CombatComponent::TryConsumeBufferedInput()
 	const FHACF_BufferedInput* FoundInput = InputBuffer.Find();
 	
 	if (!FoundInput)
+	{
+		return false;
+	}
+
+	if (ReservedBufferedInputSequences.Contains(FoundInput->Sequence))
 	{
 		return false;
 	}
