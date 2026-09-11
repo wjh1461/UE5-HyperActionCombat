@@ -25,6 +25,7 @@ namespace HyperActionCombatFrameworkTests
 		using UHACF_CombatComponent::InputPressedSpecHandles;
 		using UHACF_CombatComponent::InputHeldSpecHandles;
 		using UHACF_CombatComponent::InputReleasedSpecHandles;
+		using UHACF_CombatComponent::ReservedBufferedInputSequences;
 	};		
 	
 	TEST_CLASS(HACF_CombatInputQueueTest, "HyperActionCombat.Tests.CombatComponent.InputQueue")
@@ -289,6 +290,352 @@ namespace HyperActionCombatFrameworkTests
 				GivenHandle, PredictionKey).Remove(InputReleasedDelegateHandle);
 		}
 
+		TEST_METHOD(ProcessAbilityInput_SuccessfulActivationDoesNotDispatchPressToActionWindow)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
+			ASSERT_THAT(AreEqual(0, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_FailedActivationDispatchesPressToActionWindow)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestCannotActivateGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			ASSERT_THAT(IsFalse(FoundSpec->IsActive()));
+			ASSERT_THAT(AreEqual(1, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_NoMatchingSpecDispatchesPressToActionWindow)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			ASSERT_THAT(IsTrue(CombatComponent->InputPressedSpecHandles.IsEmpty()));
+
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			ASSERT_THAT(AreEqual(1, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_ActiveAbilityReceivesPressAndActionWindowConsumesIt)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+			ASSERT_THAT(IsTrue(ASC->TryActivateAbility(GivenHandle)));
+
+			FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			UTestGameplayAbility* AbilityInstance = Cast<UTestGameplayAbility>(FoundSpec->GetPrimaryInstance());
+			ASSERT_THAT(IsNotNull(AbilityInstance));
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			ASSERT_THAT(AreEqual(1, AbilityInstance->GetInputPressedCount()));
+			ASSERT_THAT(AreEqual(1, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_SynchronousWindowOpeningCannotConsumeActivatingPress)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec Spec(UTestOpensActionWindowOnActivationGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			UTestOpensActionWindowOnActivationGameplayAbility* AbilityInstance =
+				Cast<UTestOpensActionWindowOnActivationGameplayAbility>(FoundSpec->GetPrimaryInstance());
+			ASSERT_THAT(IsNotNull(AbilityInstance));
+			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
+			ASSERT_THAT(IsFalse(AbilityInstance->DidSynchronousProcessSucceed()));
+			ASSERT_THAT(AreEqual(0, AbilityInstance->GetWindowDispatchCount()));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_ReentrantPressRemainsReservedForNextPass)
+		{
+			const FGameplayTag PrimaryTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
+			const FGameplayTag SecondaryTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary"));
+
+			FGameplayAbilitySpec PrimarySpec(UTestQueuesSecondaryInputOnActivationGameplayAbility::StaticClass(), 1, -1, nullptr);
+			PrimarySpec.GetDynamicSpecSourceTags().AddTag(PrimaryTag);
+			const FGameplayAbilitySpecHandle PrimaryHandle = ASC->GiveAbility(PrimarySpec);
+
+			FGameplayAbilitySpec SecondarySpec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			SecondarySpec.GetDynamicSpecSourceTags().AddTag(SecondaryTag);
+			const FGameplayAbilitySpecHandle SecondaryHandle = ASC->GiveAbility(SecondarySpec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(SecondaryTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(PrimaryTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			ASSERT_THAT(IsTrue(ASC->FindAbilitySpecFromHandle(PrimaryHandle)->IsActive()));
+			ASSERT_THAT(IsFalse(ASC->FindAbilitySpecFromHandle(SecondaryHandle)->IsActive()));
+			ASSERT_THAT(AreEqual(1, CombatComponent->ReservedBufferedInputSequences.Num()));
+			ASSERT_THAT(AreEqual(0, WindowDispatchCount));
+
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			ASSERT_THAT(IsTrue(ASC->FindAbilitySpecFromHandle(SecondaryHandle)->IsActive()));
+			ASSERT_THAT(AreEqual(0, CombatComponent->ReservedBufferedInputSequences.Num()));
+			ASSERT_THAT(AreEqual(0, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_PublicRecordAfterDeferredPressPreservesChronologicalFIFO)
+		{
+			const FGameplayTag DeferredTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
+			const FGameplayTag DirectTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary"));
+
+			CombatComponent->AbilityInputTagPressed(DeferredTag);
+			ASSERT_THAT(AreEqual(1, CombatComponent->ReservedBufferedInputSequences.Num()));
+			CombatComponent->RecordBufferedInput(DirectTag);
+			ASSERT_THAT(AreEqual(1, CombatComponent->ReservedBufferedInputSequences.Num()));
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(DeferredTag);
+			Definition.AcceptedInputTags.AddTag(DirectTag);
+			TArray<FGameplayTag> DispatchedTags;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&DispatchedTags](const FHACF_ActionWindowInputContext& Context)
+					{
+						DispatchedTags.Add(Context.InputTag);
+						return true;
+					}));
+
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			ASSERT_THAT(AreEqual(1, DispatchedTags.Num()));
+			ASSERT_THAT(IsTrue(DispatchedTags[0] == DeferredTag));
+			ASSERT_THAT(IsTrue(CombatComponent->ProcessBufferedInput()));
+			ASSERT_THAT(AreEqual(2, DispatchedTags.Num()));
+			ASSERT_THAT(IsTrue(DispatchedTags[1] == DirectTag));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_SuccessRemovesMatchedPendingAndLeavesOlderUnmatchedPress)
+		{
+			const FGameplayTag UnmatchedTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary"));
+			const FGameplayTag MatchedTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(MatchedTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(UnmatchedTag);
+			Definition.AcceptedInputTags.AddTag(MatchedTag);
+			TArray<FGameplayTag> DispatchedTags;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&DispatchedTags](const FHACF_ActionWindowInputContext& Context)
+					{
+						DispatchedTags.Add(Context.InputTag);
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(UnmatchedTag);
+			CombatComponent->AbilityInputTagPressed(MatchedTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
+			ASSERT_THAT(AreEqual(1, DispatchedTags.Num()));
+			ASSERT_THAT(IsTrue(DispatchedTags[0] == UnmatchedTag));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_MultiTagSpecConsumesOnlyOldestMatchingPendingPress)
+		{
+			const FGameplayTag FirstTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
+			const FGameplayTag SecondTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(FirstTag);
+			Spec.GetDynamicSpecSourceTags().AddTag(SecondTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(FirstTag);
+			Definition.AcceptedInputTags.AddTag(SecondTag);
+			TArray<FGameplayTag> DispatchedTags;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&DispatchedTags](const FHACF_ActionWindowInputContext& Context)
+					{
+						DispatchedTags.Add(Context.InputTag);
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(FirstTag);
+			CombatComponent->AbilityInputTagPressed(SecondTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
+			ASSERT_THAT(AreEqual(1, DispatchedTags.Num()));
+			ASSERT_THAT(IsTrue(DispatchedTags[0] == SecondTag));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_MultiTagActivationConsumesExactCausingPress)
+		{
+			const FGameplayTag OlderDirectTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary"));
+			const FGameplayTag ActivatingTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Primary"));
+
+			FGameplayAbilitySpec Spec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			Spec.GetDynamicSpecSourceTags().AddTag(OlderDirectTag);
+			Spec.GetDynamicSpecSourceTags().AddTag(ActivatingTag);
+			const FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(OlderDirectTag);
+			Definition.AcceptedInputTags.AddTag(ActivatingTag);
+			TArray<FGameplayTag> DispatchedTags;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&DispatchedTags](const FHACF_ActionWindowInputContext& Context)
+					{
+						DispatchedTags.Add(Context.InputTag);
+						return true;
+					}));
+
+			CombatComponent->RecordBufferedInput(OlderDirectTag);
+			CombatComponent->AbilityInputTagPressed(ActivatingTag);
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundSpec = ASC->FindAbilitySpecFromHandle(GivenHandle);
+			ASSERT_THAT(IsNotNull(FoundSpec));
+			ASSERT_THAT(IsTrue(FoundSpec->IsActive()));
+			ASSERT_THAT(AreEqual(1, DispatchedTags.Num()));
+			ASSERT_THAT(IsTrue(DispatchedTags[0] == OlderDirectTag));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
+		TEST_METHOD(ProcessAbilityInput_MixedSameTagSpecsConsumePhysicalPressExactlyOnce)
+		{
+			const FGameplayTag TestTag = FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag"));
+
+			FGameplayAbilitySpec FailingSpec(UTestCannotActivateGameplayAbility::StaticClass(), 1, -1, nullptr);
+			FailingSpec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle FailingHandle = ASC->GiveAbility(FailingSpec);
+
+			FGameplayAbilitySpec SuccessfulSpec(UTestGameplayAbility::StaticClass(), 1, -1, nullptr);
+			SuccessfulSpec.GetDynamicSpecSourceTags().AddTag(TestTag);
+			const FGameplayAbilitySpecHandle SuccessfulHandle = ASC->GiveAbility(SuccessfulSpec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
+
+			CombatComponent->AbilityInputTagPressed(TestTag);
+			ASSERT_THAT(AreEqual(2, CombatComponent->InputPressedSpecHandles.Num()));
+			CombatComponent->ProcessAbilityInput(0.1f, false);
+
+			const FGameplayAbilitySpec* FoundFailingSpec = ASC->FindAbilitySpecFromHandle(FailingHandle);
+			const FGameplayAbilitySpec* FoundSuccessfulSpec = ASC->FindAbilitySpecFromHandle(SuccessfulHandle);
+			ASSERT_THAT(IsNotNull(FoundFailingSpec));
+			ASSERT_THAT(IsNotNull(FoundSuccessfulSpec));
+			ASSERT_THAT(IsFalse(FoundFailingSpec->IsActive()));
+			ASSERT_THAT(IsTrue(FoundSuccessfulSpec->IsActive()));
+			ASSERT_THAT(AreEqual(0, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
+		}
+
 		TEST_METHOD(ProcessAbilityInput_ReactivatesWhileInputActiveAbilityWhileHeld)
 		{
 			// Arrange
@@ -297,6 +644,17 @@ namespace HyperActionCombatFrameworkTests
 			FGameplayAbilitySpec Spec(UTestWhileInputActiveGameplayAbility::StaticClass(), 1, -1, nullptr);
 			Spec.GetDynamicSpecSourceTags().AddTag(TestTag);
 			FGameplayAbilitySpecHandle GivenHandle = ASC->GiveAbility(Spec);
+
+			FHACF_ActionWindowDefinition Definition;
+			Definition.AcceptedInputTags.AddTag(TestTag);
+			int32 WindowDispatchCount = 0;
+			CombatComponent->OpenActionWindow(Definition, DummyPawn,
+				FHACF_ActionWindowInputHandler::CreateLambda(
+					[&WindowDispatchCount](const FHACF_ActionWindowInputContext&)
+					{
+						++WindowDispatchCount;
+						return true;
+					}));
 
 			CombatComponent->AbilityInputTagPressed(TestTag);
 			CombatComponent->ProcessAbilityInput(0.1f, false);
@@ -316,6 +674,8 @@ namespace HyperActionCombatFrameworkTests
 			// Assert
 			ASSERT_THAT(AreEqual(2, AbilityInstance->GetActivationCount()));
 			ASSERT_THAT(IsTrue(CombatComponent->InputHeldSpecHandles.Contains(GivenHandle)));
+			ASSERT_THAT(AreEqual(0, WindowDispatchCount));
+			ASSERT_THAT(IsFalse(CombatComponent->ProcessBufferedInput()));
 
 		}
 	};

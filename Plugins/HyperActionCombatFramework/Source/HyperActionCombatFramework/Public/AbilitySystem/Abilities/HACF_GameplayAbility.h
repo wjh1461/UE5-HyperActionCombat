@@ -6,6 +6,8 @@
 #include "Abilities/GameplayAbility.h"
 #include "HACF_GameplayAbility.generated.h"
 
+class UPlayMoverMontageCallbackProxy;
+struct FHACF_ActionWindowInputContext;
 class UHACF_HeroComponent;
 class UHACF_CombatComponent;
 class APawn;

@@ -5,7 +5,9 @@
 #include "AbilitySystemComponent.h"
 #include "Character/HACF_HeroComponent.h"
 #include "Core/HACF_CombatComponent.h"
+#include "DefaultMovementSet/CharacterMoverComponent.h"
 #include "GameFramework/Character.h"
+#include "MoveLibrary/PlayMoverMontageCallbackProxy.h"
 
 UHACF_GameplayAbility::UHACF_GameplayAbility()
 {
@@ -49,8 +51,7 @@ void UHACF_GameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorIn
 	TryActivateAbilityOnSpawn(ActorInfo, Spec);
 }
 
-void UHACF_GameplayAbility::TryActivateAbilityOnSpawn(const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilitySpec& Spec)
+void UHACF_GameplayAbility::TryActivateAbilityOnSpawn(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	if (ActivationPolicy != EHACFAbilityActivationPolicy::OnSpawn)
 	{

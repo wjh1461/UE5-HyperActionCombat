@@ -141,51 +141,21 @@ namespace HyperActionCombatFrameworkTests
 				});
 		}
 
-		TEST_METHOD(SimulateInput_PrimaryAttack_TriggersAbilityInputTag)
+		TEST_METHOD(SimulateInput_AllAbilityActions_TriggerMappedTags)
 		{
 			SetupTestEnvironment();
 			VerifyInputTriggers(FName("HACF.Input.Action.Primary"));
-		}
-
-		TEST_METHOD(SimulateInput_PrimaryAttackReleased_ClearsAbilityInputTag)
-		{
-			SetupTestEnvironment();
-			VerifyInputReleased(FName("HACF.Input.Action.Primary"));
-		}
-
-		TEST_METHOD(SimulateInput_SecondaryDodge_TriggersAbilityInputTag)
-		{
-			SetupTestEnvironment();
 			VerifyInputTriggers(FName("HACF.Input.Action.Ability.Dodge"));
-		}
-
-		TEST_METHOD(SimulateInput_SecondaryReleased_ClearsAbilityInputTag)
-		{
-			SetupTestEnvironment();
-			VerifyInputReleased(FName("HACF.Input.Action.Ability.Dodge"));
-		}
-
-		TEST_METHOD(SimulateInput_AbilityNormal_TriggersAbilityInputTag)
-		{
-			SetupTestEnvironment();
 			VerifyInputTriggers(FName("HACF.Input.Action.Ability.Normal"));
-		}
-
-		TEST_METHOD(SimulateInput_AbilityNormalReleased_ClearsAbilityInputTag)
-		{
-			SetupTestEnvironment();
-			VerifyInputReleased(FName("HACF.Input.Action.Ability.Normal"));
-		}
-
-		TEST_METHOD(SimulateInput_AbilityUltimate_TriggersAbilityInputTag)
-		{
-			SetupTestEnvironment();
 			VerifyInputTriggers(FName("HACF.Input.Action.Ability.Ultimate"));
 		}
 
-		TEST_METHOD(SimulateInput_AbilityUltimateReleased_ClearsAbilityInputTag)
+		TEST_METHOD(SimulateInput_AllAbilityActions_ReleaseMappedTags)
 		{
 			SetupTestEnvironment();
+			VerifyInputReleased(FName("HACF.Input.Action.Primary"));
+			VerifyInputReleased(FName("HACF.Input.Action.Ability.Dodge"));
+			VerifyInputReleased(FName("HACF.Input.Action.Ability.Normal"));
 			VerifyInputReleased(FName("HACF.Input.Action.Ability.Ultimate"));
 		}
 	};

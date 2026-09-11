@@ -2,6 +2,7 @@
 
 
 #include "TestGameplayAbility.h"
+#include "Core/HACF_CombatComponent.h"
 
 void UTestGameplayAbility::EndTestAbility()
 {
@@ -28,4 +29,51 @@ void UTestGameplayAbility::InputReleased(const FGameplayAbilitySpecHandle Handle
 {
 	Super::InputReleased(Handle, ActorInfo, ActivationInfo);
 	++InputReleasedCount;
+}
+
+bool UTestCannotActivateGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags,
+	const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	return false;
+}
+
+void UTestOpensActionWindowOnActivationGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	UHACF_CombatComponent* CombatComponent = GetCombatComponent();
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	FHACF_ActionWindowDefinition Definition;
+	Definition.AcceptedInputTags.AddTag(FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.TestTag")));
+	CombatComponent->OpenActionWindow(Definition, this,
+		FHACF_ActionWindowInputHandler::CreateUObject(
+			this, &UTestOpensActionWindowOnActivationGameplayAbility::HandleWindowInput));
+	bSynchronousProcessSucceeded = CombatComponent->ProcessBufferedInput();
+}
+
+bool UTestOpensActionWindowOnActivationGameplayAbility::HandleWindowInput(
+	const FHACF_ActionWindowInputContext& Context)
+{
+	++WindowDispatchCount;
+	return true;
+}
+
+void UTestQueuesSecondaryInputOnActivationGameplayAbility::ActivateAbility(
+	const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (UHACF_CombatComponent* CombatComponent = GetCombatComponent())
+	{
+		CombatComponent->AbilityInputTagPressed(
+			FGameplayTag::RequestGameplayTag(TEXT("HACF.Input.Action.Secondary")));
+	}
 }
