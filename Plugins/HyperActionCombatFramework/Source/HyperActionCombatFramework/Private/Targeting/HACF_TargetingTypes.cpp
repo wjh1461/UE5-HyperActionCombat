@@ -3,11 +3,3 @@
 
 #include "Targeting/HACF_TargetingTypes.h"
 
-
-HACF_TargetingTypes::HACF_TargetingTypes()
-{
-}
-
-HACF_TargetingTypes::~HACF_TargetingTypes()
-{
-}
