@@ -35,7 +35,7 @@ public:
 	
 	// 기본 타게팅 거리
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Targeting", meta = (ClampMin = "0.001"))
-	float DefaultRange;
+	float DefaultRange = 500.f;
 	
 	// 타게팅 대상 정렬
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Targeting")
