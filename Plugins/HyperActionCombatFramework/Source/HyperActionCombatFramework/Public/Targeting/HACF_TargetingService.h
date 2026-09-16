@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HACF_TargetingTypes.h"
 #include "UObject/Interface.h"
 #include "HACF_TargetingService.generated.h"
 
@@ -22,4 +23,6 @@ class HYPERACTIONCOMBATFRAMEWORK_API IHACF_TargetingService
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "HACF|Targeting")
+	FHACF_TargetingResult ExecuteTargeting(const FHACF_TargetingRequest& TargetingRequest);
 };

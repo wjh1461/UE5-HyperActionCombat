@@ -7,6 +7,8 @@
 #include "Components/ActorComponent.h"
 #include "HACF_TargetingComponent.generated.h"
 
+class UHACF_TargetingExecutor;
+
 /**
  * 
  */
@@ -24,7 +26,9 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-	                           FActorComponentTickFunction* ThisTickFunction) override;
+	virtual FHACF_TargetingResult ExecuteTargeting_Implementation(const FHACF_TargetingRequest& TargetingRequest) override;
+	
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UHACF_TargetingExecutor> TargetingExecutor;
 };
