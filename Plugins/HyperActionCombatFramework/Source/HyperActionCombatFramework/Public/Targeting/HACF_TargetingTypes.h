@@ -30,22 +30,22 @@ enum class EHACF_TargetingResultStatus : uint8
 	InvalidRequest,     // Config·입력·설정 검증 실패
 	ServiceUnavailable, // 서비스가 연결되지 않았거나 유효하지 않음
 	NotReady,           // 서비스는 있으나 실행 준비가 되지 않음
-	Failed,             // Task 실행 또는 계산 실패
+	Failed,             // Processor 실행 또는 계산 실패
 	Cancelled           // 후속 취소 API에서 사용
 };
 
-// 개별 Task의 실행 결과
+// 개별 Processor의 실행 결과
 UENUM(BlueprintType)
-enum class EHACF_TargetingTaskStatus : uint8
+enum class EHACF_TargetingProcessResult : uint8
 {
 	Success, // 해당 단계 작업 완료
 	Skipped, // 선택적 실행 조건이 불일치하여 건너뜀
 	Failed   // 전체 요청을 실패로 종료
 };
 
-// Task의 파이프라인 단계
+// Processor의 파이프라인 단계
 UENUM(BlueprintType)
-enum class EHACF_TargetingTaskStage : uint8
+enum class EHACF_TargetingPhase : uint8
 {
 	Selection,
 	Filter,
@@ -91,7 +91,7 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingRequest
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Targeting")
     FVector Origin = FVector::ZeroVector;
 
-    // 방향이 필요한 Task에서 검증 후 정규화
+    // 방향이 필요한 Processor에서 검증 후 정규화
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Targeting")
     FVector AimDirection = FVector::ForwardVector;
 
@@ -171,11 +171,11 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingCandidate
 	UPROPERTY(BlueprintReadOnly, Category = "Targeting")
 	FHitResult HitResult;
 
-	// Score Task들이 누적
+	// Scorer들이 누적
 	UPROPERTY(BlueprintReadOnly, Category = "Targeting")
 	float Score = 0.0f;
 
-	// Selection Task 순서와 Task 내부 생성 순서를 합친 안정적 정렬 키
+	// Selector 순서와 Selector 내부 생성 순서를 합친 안정적 정렬 키
 	uint32 StableSortIndex = 0;
 
 	bool IsValid() const;
@@ -184,7 +184,7 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingCandidate
 /**
  * 
  */
-// 외부 모듈에서 TargetingTask를 구현할 때 Fail 등 Context API를 호출할 수 있어야 한다.
+// 외부 모듈에서 TargetingProcessor를 구현할 때 Fail 등 Context API를 호출할 수 있어야 한다.
 struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingExecutionContext
 {
 	// 실행 시작 시 복사한 요청 스냅샷
@@ -193,10 +193,10 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingExecutionContext
 	// Selection → Filter → Score가 공동으로 변경하는 후보 집합
 	TArray<FHACF_TargetingCandidate> Candidates;
 
-	// 현재 실행 단계와 해당 단계 안의 Task 위치
-	EHACF_TargetingTaskStage CurrentStage = EHACF_TargetingTaskStage::Selection;
+	// 현재 실행 단계와 해당 단계 안의 Processor 위치
+	EHACF_TargetingPhase CurrentPhase = EHACF_TargetingPhase::Selection;
 
-	int32 CurrentTaskIndex = INDEX_NONE;
+	int32 CurrentProcessorIndex = INDEX_NONE;
 
 	// Request Override와 Config 기본값을 합쳐 한 번만 계산한 값
 	float EffectiveRange = 0.0f;

@@ -7,7 +7,9 @@
 #include "HACF_TargetingTypes.h"
 #include "HACF_TargetingConfig.generated.h"
 
-class UHACF_TargetingTask;
+class UHACF_TargetFilter;
+class UHACF_TargetScorer;
+class UHACF_TargetSelector;
 
 /**
  * 타게팅 설정을 위한 데이터 구조.
@@ -21,17 +23,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Targeting")
 	EHACF_TargetCategory TargetCategory;
 	
-	// 후보 수집을 위한 태스크
-	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Tasks")
-	TArray<TObjectPtr<UHACF_TargetingTask>> SelectionTasks;
+	// 후보 수집을 위한 Selector
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Pipeline")
+	TArray<TObjectPtr<UHACF_TargetSelector>> Selectors;
 	
-	// 후보 제거를 위한 태스크
-	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Tasks")
-	TArray<TObjectPtr<UHACF_TargetingTask>> FilterTasks;
+	// 후보 제거를 위한 Filter
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Pipeline")
+	TArray<TObjectPtr<UHACF_TargetFilter>> Filters;
 	
-	// 후보 우선순위를 위한 점수 부여 태스크
-	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Tasks")
-	TArray<TObjectPtr<UHACF_TargetingTask>> ScoreTasks;
+	// 후보 우선순위를 위한 Scorer
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category="Targeting|Pipeline")
+	TArray<TObjectPtr<UHACF_TargetScorer>> Scorers;
 	
 	// 기본 타게팅 거리
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Targeting", meta = (ClampMin = "0.001"))

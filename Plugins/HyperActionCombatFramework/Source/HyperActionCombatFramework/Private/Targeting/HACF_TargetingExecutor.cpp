@@ -3,7 +3,49 @@
 
 #include "Targeting/HACF_TargetingExecutor.h"
 #include "Targeting/HACF_TargetingConfig.h"
-#include "Targeting/HACF_TargetingTask.h"
+#include "Targeting/HACF_TargetingProcessor.h"
+
+namespace
+{
+	template <typename ProcessorType, typename ExecuteType>
+	bool ExecuteProcessors(const TArray<TObjectPtr<ProcessorType>>& Processors, const EHACF_TargetingPhase Phase,
+		FHACF_TargetingExecutionContext& Context, ExecuteType&& Execute)
+	{
+		Context.CurrentPhase = Phase;
+
+		for (ProcessorType* Processor : Processors)
+		{
+			Context.CurrentProcessorIndex++;
+
+			if (!IsValid(Processor))
+			{
+				Context.Fail(EHACF_TargetingResultStatus::InvalidRequest,
+					TEXT("Targeting config contains an invalid processor."));
+				return false;
+			}
+
+			if (Context.bCancelled)
+			{
+				Context.Fail(EHACF_TargetingResultStatus::Cancelled, TEXT("Targeting execution was cancelled."));
+				return false;
+			}
+
+			switch (Execute(*Processor, Context))
+			{
+			case EHACF_TargetingProcessResult::Success:
+			case EHACF_TargetingProcessResult::Skipped:
+				break;
+
+			case EHACF_TargetingProcessResult::Failed:
+			default:
+				return false;
+			}
+		}
+
+		Context.CurrentProcessorIndex = INDEX_NONE;
+		return true;
+	}
+}
 
 FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequest& TargetingRequest) const
 {
@@ -17,8 +59,8 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 	
 	const UHACF_TargetingConfig* Config = TargetingRequest.Config;
 
-	// Selection Tasks 실행
-	if (!ExecuteTasks(Config->SelectionTasks, EHACF_TargetingTaskStage::Selection, Context))
+	// Selector 실행
+	if (!ExecuteSelectors(Config->Selectors, Context))
 	{
 		FHACF_TargetingResult Result;
 		Result.Reset(Context.FailureStatus);
@@ -32,8 +74,8 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		return Result;
 	}
 	
-	// Filter Tasks 실행
-	if (!ExecuteTasks(Config->FilterTasks, EHACF_TargetingTaskStage::Filter, Context))
+	// Filter 실행
+	if (!ExecuteFilters(Config->Filters, Context))
 	{
 		FHACF_TargetingResult Result;
 		Result.Reset(Context.FailureStatus);
@@ -47,8 +89,8 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		return Result;
 	}
 
-	// Score Tasks 실행
-	if (!ExecuteTasks(Config->ScoreTasks, EHACF_TargetingTaskStage::Score, Context))
+	// Scorer 실행
+	if (!ExecuteScorers(Config->Scorers, Context))
 	{
 		FHACF_TargetingResult Result;
 		Result.Reset(Context.FailureStatus);
@@ -58,41 +100,34 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 	return BuildTargetingResult(Context);
 }
 
-bool UHACF_TargetingExecutor::ExecuteTasks(const TArray<TObjectPtr<UHACF_TargetingTask>>& Tasks,
-	EHACF_TargetingTaskStage Stage, FHACF_TargetingExecutionContext& Context) const
+bool UHACF_TargetingExecutor::ExecuteSelectors(const TArray<TObjectPtr<UHACF_TargetSelector>>& Selectors,
+	FHACF_TargetingExecutionContext& Context) const
 {
-	Context.CurrentStage = Stage;
+	return ExecuteProcessors(Selectors, EHACF_TargetingPhase::Selection, Context,
+		[](const UHACF_TargetSelector& Selector, FHACF_TargetingExecutionContext& ExecutionContext)
+		{
+			return Selector.Select(ExecutionContext);
+		});
+}
 
-	for (UHACF_TargetingTask* Task : Tasks)
-	{
-		Context.CurrentTaskIndex++;
-		
-		if (!IsValid(Task))
+bool UHACF_TargetingExecutor::ExecuteFilters(const TArray<TObjectPtr<UHACF_TargetFilter>>& Filters,
+	FHACF_TargetingExecutionContext& Context) const
+{
+	return ExecuteProcessors(Filters, EHACF_TargetingPhase::Filter, Context,
+		[](const UHACF_TargetFilter& Filter, FHACF_TargetingExecutionContext& ExecutionContext)
 		{
-			Context.Fail(EHACF_TargetingResultStatus::InvalidRequest, TEXT("Targeting config contains an invalid task."));
-			return false;
-		}
-		
-		if (Context.bCancelled)
-		{
-			Context.Fail(EHACF_TargetingResultStatus::Cancelled, TEXT("Targeting execution was cancelled."));
-			return false;
-		}
+			return Filter.Filter(ExecutionContext);
+		});
+}
 
-		switch (Task->Execute(Context))
+bool UHACF_TargetingExecutor::ExecuteScorers(const TArray<TObjectPtr<UHACF_TargetScorer>>& Scorers,
+	FHACF_TargetingExecutionContext& Context) const
+{
+	return ExecuteProcessors(Scorers, EHACF_TargetingPhase::Score, Context,
+		[](const UHACF_TargetScorer& Scorer, FHACF_TargetingExecutionContext& ExecutionContext)
 		{
-		case EHACF_TargetingTaskStatus::Success:
-		case EHACF_TargetingTaskStatus::Skipped:
-			break;
-			
-		case EHACF_TargetingTaskStatus::Failed:
-		default:
-			return false;
-		}
-	}
-	
-	Context.CurrentTaskIndex = INDEX_NONE;
-	return true;
+			return Scorer.Score(ExecutionContext);
+		});
 }
 
 FHACF_TargetingResult UHACF_TargetingExecutor::BuildTargetingResult(const FHACF_TargetingExecutionContext& Context) const

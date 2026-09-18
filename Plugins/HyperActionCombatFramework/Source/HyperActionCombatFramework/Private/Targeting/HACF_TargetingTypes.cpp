@@ -40,8 +40,8 @@ bool FHACF_TargetingExecutionContext::Initialize(const FHACF_TargetingRequest& I
 	Request = InRequest;
 	Candidates.Reset();
 
-	CurrentStage = EHACF_TargetingTaskStage::Selection;
-	CurrentTaskIndex = INDEX_NONE;
+	CurrentPhase = EHACF_TargetingPhase::Selection;
+	CurrentProcessorIndex = INDEX_NONE;
 	NextStableSortIndex = 0;
 	bCancelled = false;
 	FailureStatus = EHACF_TargetingResultStatus::Failed;
