@@ -11,7 +11,7 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 	if (!Context.Initialize(TargetingRequest))
 	{
 		FHACF_TargetingResult Result;
-		Result.Reset(EHACF_TargetingResultStatus::Failed);
+		Result.Reset(Context.FailureStatus);
 		return Result;
 	}
 	

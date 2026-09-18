@@ -184,7 +184,8 @@ struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingCandidate
 /**
  * 
  */
-struct FHACF_TargetingExecutionContext
+// 외부 모듈에서 TargetingTask를 구현할 때 Fail 등 Context API를 호출할 수 있어야 한다.
+struct HYPERACTIONCOMBATFRAMEWORK_API FHACF_TargetingExecutionContext
 {
 	// 실행 시작 시 복사한 요청 스냅샷
 	FHACF_TargetingRequest Request;
