@@ -9,6 +9,7 @@
 #include "HACF_LogChannels.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 #include "GameFramework/PlayerState.h"
+#include "Targeting/HACF_TargetingService.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
 
@@ -16,6 +17,28 @@ UHACF_CombatComponent::UHACF_CombatComponent(const FObjectInitializer& ObjectIni
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = false;
+}
+
+FHACF_TargetingResult UHACF_CombatComponent::ExecuteTargeting(const FHACF_TargetingRequest& TargetingRequest)
+{
+	FHACF_TargetingResult Result;
+	APawn* Pawn = GetPawn<APawn>();
+	if (!IsValid(Pawn))
+	{
+		Result.Reset(EHACF_TargetingResultStatus::InvalidRequest);
+		return Result;
+	}
+
+	UActorComponent* TargetingService = Pawn->FindComponentByInterface(UHACF_TargetingService::StaticClass());
+	if (!IsValid(TargetingService))
+	{
+		Result.Reset(EHACF_TargetingResultStatus::ServiceUnavailable);
+		return Result;
+	}
+
+	FHACF_TargetingRequest EffectiveRequest = TargetingRequest;
+	EffectiveRequest.SourceActor = Pawn;
+	return IHACF_TargetingService::Execute_ExecuteTargeting(TargetingService, EffectiveRequest);
 }
 
 // Called every frame

@@ -10,6 +10,7 @@
 #include "CombatInput/HACF_InputBuffer.h"
 #include "Combat/Combo/HACF_ComboWindowRoute.h"
 #include "CombatInput/HACF_ActionWindowTypes.h"
+#include "Targeting/HACF_TargetingTypes.h"
 #include "HACF_CombatComponent.generated.h"
 
 struct FGameplayAbilitySpec;
@@ -74,6 +75,9 @@ public:
 	bool ProcessBufferedInput();
 	//~End
 	
+	UFUNCTION(BlueprintCallable, Category = "HACF|Targeting")
+	FHACF_TargetingResult ExecuteTargeting(const FHACF_TargetingRequest& TargetingRequest);
+
 	FHACF_ComboWindowRouteHandle BindComboWindowRoute(FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler);
 	bool UnbindComboWindowRoute(FHACF_ComboWindowRouteHandle Handle);
 	void RouteComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag);

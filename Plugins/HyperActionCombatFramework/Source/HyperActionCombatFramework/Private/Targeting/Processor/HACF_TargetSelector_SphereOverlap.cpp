@@ -3,6 +3,7 @@
 
 #include "Targeting/Processor/HACF_TargetSelector_SphereOverlap.h"
 #include "Targeting/HACF_TargetingConfig.h"
+#include "Targeting/HACF_TargetingDebug.h"
 #include "CollisionQueryParams.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
@@ -40,6 +41,7 @@ EHACF_TargetingProcessResult UHACF_TargetSelector_SphereOverlap::Select(FHACF_Ta
 	TArray<FOverlapResult> Overlaps;
 	World->OverlapMultiByObjectType(Overlaps, SourceActor->GetActorLocation(), FQuat::Identity, ObjectQueryParams,
 		FCollisionShape::MakeSphere(Context.EffectiveRange));
+	HACFTargetingDebug::DrawQuerySphere(World, SourceActor->GetActorLocation(), Context.EffectiveRange);
 
 	TSet<AActor*> SeenActors;
 	for (const FOverlapResult& Overlap : Overlaps)

@@ -3,6 +3,7 @@
 
 #include "Targeting/HACF_TargetingExecutor.h"
 #include "Targeting/HACF_TargetingConfig.h"
+#include "Targeting/HACF_TargetingDebug.h"
 #include "Targeting/HACF_TargetingProcessor.h"
 
 namespace
@@ -97,7 +98,9 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		return Result;
 	}
 	
-	return BuildTargetingResult(Context);
+	FHACF_TargetingResult Result = BuildTargetingResult(Context);
+	HACFTargetingDebug::DrawResult(TargetingRequest, Result);
+	return Result;
 }
 
 bool UHACF_TargetingExecutor::ExecuteSelectors(const TArray<TObjectPtr<UHACF_TargetSelector>>& Selectors,
