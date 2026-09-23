@@ -39,9 +39,9 @@ EHACF_TargetingProcessResult UHACF_TargetSelector_SphereOverlap::Select(FHACF_Ta
 	}
 
 	TArray<FOverlapResult> Overlaps;
-	World->OverlapMultiByObjectType(Overlaps, SourceActor->GetActorLocation(), FQuat::Identity, ObjectQueryParams,
+	World->OverlapMultiByObjectType(Overlaps, Context.Request.Origin, FQuat::Identity, ObjectQueryParams,
 		FCollisionShape::MakeSphere(Context.EffectiveRange));
-	HACFTargetingDebug::DrawQuerySphere(World, SourceActor->GetActorLocation(), Context.EffectiveRange);
+	HACFTargetingDebug::DrawQuerySphere(World, Context.Request.Origin, Context.EffectiveRange);
 
 	TSet<AActor*> SeenActors;
 	for (const FOverlapResult& Overlap : Overlaps)
