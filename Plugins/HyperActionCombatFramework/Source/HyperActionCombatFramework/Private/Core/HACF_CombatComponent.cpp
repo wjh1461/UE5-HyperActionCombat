@@ -29,7 +29,7 @@ FHACF_TargetingResult UHACF_CombatComponent::ExecuteTargeting(const FHACF_Target
 		return Result;
 	}
 
-	UActorComponent* TargetingService = Pawn->FindComponentByInterface(UHACF_TargetingService::StaticClass());
+	UObject* TargetingService = TargetingServiceObject.Get();
 	if (!IsValid(TargetingService))
 	{
 		Result.Reset(EHACF_TargetingResultStatus::ServiceUnavailable);
@@ -38,7 +38,32 @@ FHACF_TargetingResult UHACF_CombatComponent::ExecuteTargeting(const FHACF_Target
 
 	FHACF_TargetingRequest EffectiveRequest = TargetingRequest;
 	EffectiveRequest.SourceActor = Pawn;
+	if (!EffectiveRequest.RequestOwner.IsValid())
+	{
+		EffectiveRequest.RequestOwner = this;
+	}
+
 	return IHACF_TargetingService::Execute_ExecuteTargeting(TargetingService, EffectiveRequest);
+}
+
+bool UHACF_CombatComponent::RefreshTargetingService()
+{
+	TargetingServiceObject.Reset();
+
+	APawn* Pawn = GetPawn<APawn>();
+	if (!IsValid(Pawn))
+	{
+		return false;
+	}
+
+	UActorComponent* TargetingService = Pawn->FindComponentByInterface(UHACF_TargetingService::StaticClass());
+	if (!IsValid(TargetingService))
+	{
+		return false;
+	}
+
+	TargetingServiceObject = TargetingService;
+	return true;
 }
 
 // Called every frame
@@ -63,6 +88,8 @@ void UHACF_CombatComponent::OnRegister()
 void UHACF_CombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+	RefreshTargetingService();
 	
 	//BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
 	
@@ -73,6 +100,8 @@ void UHACF_CombatComponent::BeginPlay()
 
 void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	TargetingServiceObject.Reset();
+
 	UnregisterInitStateFeature();
 	UninitializeFromASC();
 	

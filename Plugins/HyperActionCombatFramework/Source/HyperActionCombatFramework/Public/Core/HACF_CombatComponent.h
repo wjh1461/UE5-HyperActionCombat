@@ -78,6 +78,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HACF|Targeting")
 	FHACF_TargetingResult ExecuteTargeting(const FHACF_TargetingRequest& TargetingRequest);
 
+	UFUNCTION(BlueprintCallable, Category = "HACF|Targeting")
+	bool RefreshTargetingService();
+
+	UFUNCTION(BlueprintPure, Category = "HACF|Targeting")
+	bool HasTargetingService() const { return TargetingServiceObject.IsValid(); }
+
 	FHACF_ComboWindowRouteHandle BindComboWindowRoute(FHACF_ComboWindowBeginHandler BeginHandler, FHACF_ComboWindowEndHandler EndHandler);
 	bool UnbindComboWindowRoute(FHACF_ComboWindowRouteHandle Handle);
 	void RouteComboWindowBegin(const FHACF_ComboWindowKey& NotifyKey, const FGameplayTag& WindowTag);
@@ -131,6 +137,9 @@ protected:
 private:
 	UPROPERTY()
 	TObjectPtr<UAbilitySystemComponent> ASC;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UObject> TargetingServiceObject;
 	
 	FHACF_ComboWindowBeginHandler ComboWindowBeginHandler;
 	FHACF_ComboWindowEndHandler ComboWindowEndHandler;
