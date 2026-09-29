@@ -52,11 +52,11 @@ namespace HyperActionCombatFrameworkTests
 
 			const UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
 			ASSERT_THAT(IsTrue(Scorer->Score(Context) == EHACF_TargetingProcessResult::Success));
-			ASSERT_THAT(IsNear(Context.Candidates[0].Score, 3.5f, KINDA_SMALL_NUMBER));
-			ASSERT_THAT(IsNear(Context.Candidates[1].Score, 0.5f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[0].Score, 2.85f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[1].Score, 0.35f, KINDA_SMALL_NUMBER));
 			ASSERT_THAT(IsNear(Context.Candidates[2].Score, 0.0f, KINDA_SMALL_NUMBER));
-			ASSERT_THAT(IsNear(Context.Candidates[3].Score, 0.75f, KINDA_SMALL_NUMBER));
-			ASSERT_THAT(IsNear(Context.Candidates[4].Score, 1.0f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[3].Score, 0.525f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[4].Score, 0.7f, KINDA_SMALL_NUMBER));
 		}
 
 		TEST_METHOD(Score_AddsPreferredActorBonus)
@@ -78,8 +78,39 @@ namespace HyperActionCombatFrameworkTests
 
 			const UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
 			ASSERT_THAT(IsTrue(Scorer->Score(Context) == EHACF_TargetingProcessResult::Success));
-			ASSERT_THAT(IsNear(Context.Candidates[0].Score, 2.5f, KINDA_SMALL_NUMBER));
-			ASSERT_THAT(IsNear(Context.Candidates[1].Score, 1.5f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[0].Score, 0.95f, KINDA_SMALL_NUMBER));
+			ASSERT_THAT(IsNear(Context.Candidates[1].Score, 0.85f, KINDA_SMALL_NUMBER));
+		}
+
+		TEST_METHOD(Score_AppliesConfiguredAimAndDistanceWeights)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->TargetCategory = EHACF_TargetCategory::Location;
+			FHACF_TargetingExecutionContext Context = MakeContext(Config);
+			Context.Candidates.Add(MakeAimAndDistanceCandidate(FVector(100.0, 0.0, 0.0)));
+
+			UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
+			Scorer->AimWeight = 2.0f;
+			Scorer->DistanceWeight = 1.0f;
+
+			ASSERT_THAT(IsTrue(Scorer->Score(Context) == EHACF_TargetingProcessResult::Success));
+			ASSERT_THAT(IsNear(Context.Candidates[0].Score, 2.0f / 3.0f, KINDA_SMALL_NUMBER));
+		}
+
+		TEST_METHOD(Score_ZeroWeightSumFailsRequestAndClearsCandidates)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->TargetCategory = EHACF_TargetCategory::Location;
+			FHACF_TargetingExecutionContext Context = MakeContext(Config);
+			Context.Candidates.Add(MakeAimAndDistanceCandidate(FVector(50.0, 0.0, 0.0)));
+
+			UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
+			Scorer->AimWeight = 0.0f;
+			Scorer->DistanceWeight = 0.0f;
+
+			ASSERT_THAT(IsTrue(Scorer->Score(Context) == EHACF_TargetingProcessResult::Failed));
+			ASSERT_THAT(IsTrue(Context.FailureStatus == EHACF_TargetingResultStatus::InvalidRequest));
+			ASSERT_THAT(IsTrue(Context.Candidates.IsEmpty()));
 		}
 
 		TEST_METHOD(Score_InvalidAimDirectionFailsRequest)
