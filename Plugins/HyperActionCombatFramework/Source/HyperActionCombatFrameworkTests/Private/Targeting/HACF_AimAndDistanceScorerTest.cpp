@@ -8,7 +8,7 @@ namespace HyperActionCombatFrameworkTests
 {
 	namespace
 	{
-		FHACF_TargetingCandidate MakeLocationCandidate(const FVector& Location, const float InitialScore = 0.0f)
+		FHACF_TargetingCandidate MakeAimAndDistanceCandidate(const FVector& Location, const float InitialScore = 0.0f)
 		{
 			FHACF_TargetingCandidate Candidate;
 			Candidate.TargetCategory = EHACF_TargetCategory::Location;
@@ -43,11 +43,11 @@ namespace HyperActionCombatFrameworkTests
 			FHACF_TargetingExecutionContext Context = MakeContext(Config);
 			Context.Request.AimDirection = FVector(2.0, 0.0, 0.0);
 			Context.Candidates = {
-				MakeLocationCandidate(FVector(50.0, 0.0, 0.0), 2.0f),
-				MakeLocationCandidate(FVector(0.0, 100.0, 0.0)),
-				MakeLocationCandidate(FVector(-100.0, 0.0, 0.0)),
-				MakeLocationCandidate(FVector(50.0, 50.0 * FMath::Sqrt(3.0), 0.0)),
-				MakeLocationCandidate(FVector(200.0, 0.0, 0.0))
+				MakeAimAndDistanceCandidate(FVector(50.0, 0.0, 0.0), 2.0f),
+				MakeAimAndDistanceCandidate(FVector(0.0, 100.0, 0.0)),
+				MakeAimAndDistanceCandidate(FVector(-100.0, 0.0, 0.0)),
+				MakeAimAndDistanceCandidate(FVector(50.0, 50.0 * FMath::Sqrt(3.0), 0.0)),
+				MakeAimAndDistanceCandidate(FVector(200.0, 0.0, 0.0))
 			};
 
 			const UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
@@ -88,7 +88,7 @@ namespace HyperActionCombatFrameworkTests
 			Config->TargetCategory = EHACF_TargetCategory::Location;
 			FHACF_TargetingExecutionContext Context = MakeContext(Config);
 			Context.Request.AimDirection = FVector::ZeroVector;
-			Context.Candidates.Add(MakeLocationCandidate(FVector(50.0, 0.0, 0.0)));
+			Context.Candidates.Add(MakeAimAndDistanceCandidate(FVector(50.0, 0.0, 0.0)));
 
 			const UHACF_TargetScorer_AimAndDistance* Scorer = NewObject<UHACF_TargetScorer_AimAndDistance>();
 			ASSERT_THAT(IsTrue(Scorer->Score(Context) == EHACF_TargetingProcessResult::Failed));
