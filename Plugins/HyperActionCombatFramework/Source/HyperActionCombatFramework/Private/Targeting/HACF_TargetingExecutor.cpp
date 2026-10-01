@@ -57,7 +57,7 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		Result.Reset(Context.FailureStatus);
 		return Result;
 	}
-	
+
 	const UHACF_TargetingConfig* Config = TargetingRequest.Config;
 
 	// Selector 실행
@@ -68,13 +68,15 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		return Result;
 	}
 
+	NormalizeCandidates(Context.Candidates, Context);
+
 	if (Context.Candidates.IsEmpty())
 	{
 		FHACF_TargetingResult Result;
 		Result.Reset(EHACF_TargetingResultStatus::NoCandidates);
 		return Result;
 	}
-	
+
 	// Filter 실행
 	if (!ExecuteFilters(Config->Filters, Context))
 	{
@@ -82,7 +84,7 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		Result.Reset(Context.FailureStatus);
 		return Result;
 	}
-	
+
 	if (Context.Candidates.IsEmpty())
 	{
 		FHACF_TargetingResult Result;
@@ -97,7 +99,7 @@ FHACF_TargetingResult UHACF_TargetingExecutor::Execute(const FHACF_TargetingRequ
 		Result.Reset(Context.FailureStatus);
 		return Result;
 	}
-	
+
 	FHACF_TargetingResult Result = BuildTargetingResult(Context);
 	HACFTargetingDebug::DrawResult(TargetingRequest, Result);
 	return Result;
@@ -133,35 +135,65 @@ bool UHACF_TargetingExecutor::ExecuteScorers(const TArray<TObjectPtr<UHACF_Targe
 		});
 }
 
+void UHACF_TargetingExecutor::NormalizeCandidates(TArray<FHACF_TargetingCandidate>& Candidates,
+	const FHACF_TargetingExecutionContext& Context) const
+{
+	const UHACF_TargetingConfig* Config = Context.Request.Config.Get();
+	if (!IsValid(Config))
+	{
+		Candidates.Reset();
+		return;
+	}
+
+	TSet<const AActor*> ExcludedActors;
+	for (const TWeakObjectPtr<AActor>& Actor : Context.Request.ExcludedActors)
+	{
+		if (Actor.IsValid())
+		{
+			ExcludedActors.Add(Actor.Get());
+		}
+	}
+	if (Config->bExcludeSourceActor && Context.Request.SourceActor.IsValid())
+	{
+		ExcludedActors.Add(Context.Request.SourceActor.Get());
+	}
+
+	TSet<const AActor*> SeenActors;
+	// RemoveAll은 남은 후보의 순서를 유지하며, 부가 정보와 정렬 키를 변경하지 않는다.
+	Candidates.RemoveAll([Config, &ExcludedActors, &SeenActors](const FHACF_TargetingCandidate& Candidate)
+	{
+		if (!Candidate.IsValid() || Candidate.TargetCategory != Config->TargetCategory)
+		{
+			return true;
+		}
+		if (Candidate.TargetCategory == EHACF_TargetCategory::Actor)
+		{
+			const AActor* Actor = Candidate.TargetActor.Get();
+			if (ExcludedActors.Contains(Actor) || SeenActors.Contains(Actor))
+			{
+				return true;
+			}
+			SeenActors.Add(Actor);
+		}
+		return false;
+	});
+}
+
 FHACF_TargetingResult UHACF_TargetingExecutor::BuildTargetingResult(const FHACF_TargetingExecutionContext& Context) const
 {
 	FHACF_TargetingResult Result;
 	Result.Reset(EHACF_TargetingResultStatus::NoCandidates);
-	
+
 	const UHACF_TargetingConfig* Config = Context.Request.Config;
 	if (!IsValid(Config))
 	{
 		Result.Reset(EHACF_TargetingResultStatus::InvalidRequest);
 		return Result;
 	}
-	
-	// 잘못된 후보가 최종 결과에 들어가지 않도록 정리한다.
-	Result.Candidates.Reserve(Context.Candidates.Num());
-	
-	for (const FHACF_TargetingCandidate& Candidate : Context.Candidates)
-	{
-		if (!Candidate.IsValid())
-		{
-			continue;
-		}
 
-		if (Candidate.TargetCategory != Config->TargetCategory)
-		{
-			continue;
-		}
-
-		Result.Candidates.Add(Candidate);
-	}
+	// 커스텀 Processor 실행 후 결과를 정렬하고 개수를 제한하기 전에 공통 규칙을 다시 적용한다.
+	Result.Candidates = Context.Candidates;
+	NormalizeCandidates(Result.Candidates, Context);
 
 	if (Result.Candidates.IsEmpty())
 	{
@@ -191,7 +223,7 @@ FHACF_TargetingResult UHACF_TargetingExecutor::BuildTargetingResult(const FHACF_
 	}
 
 	Result.Status = EHACF_TargetingResultStatus::Success;
-	
+
 	const FHACF_TargetingCandidate& PrimaryCandidate = Result.Candidates[0];
 
 	Result.bHasTargetLocation = true;

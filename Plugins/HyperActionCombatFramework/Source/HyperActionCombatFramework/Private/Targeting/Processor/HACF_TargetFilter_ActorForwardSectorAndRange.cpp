@@ -36,10 +36,10 @@ EHACF_TargetingProcessResult UHACF_TargetFilter_ActorForwardSectorAndRange::Filt
 	const double MinimumDot = FMath::Cos(FMath::DegreesToRadians(static_cast<double>(HalfAngleDegrees)));
 
 	Context.Candidates.RemoveAll(
-		[Origin, Forward2D, RangeSquared, MinimumDot, SourceActor](const FHACF_TargetingCandidate& Candidate)
+		[Origin, Forward2D, RangeSquared, MinimumDot, SourceActor, Config](const FHACF_TargetingCandidate& Candidate)
 		{
 			if (!Candidate.IsValid() || Candidate.TargetCategory != EHACF_TargetCategory::Actor
-				|| Candidate.TargetActor.Get() == SourceActor)
+				|| (Config->bExcludeSourceActor && Candidate.TargetActor.Get() == SourceActor))
 			{
 				return true;
 			}

@@ -4,6 +4,7 @@ EHACF_TargetingProcessResult FHACF_TargetingTestProcessorBehavior::Execute(
 	FHACF_TargetingExecutionContext& Context) const
 {
 	++ExecuteCount;
+	ObservedCandidates = Context.Candidates;
 	ObservedPhases.Add(Context.CurrentPhase);
 	ObservedProcessorIndices.Add(Context.CurrentProcessorIndex);
 

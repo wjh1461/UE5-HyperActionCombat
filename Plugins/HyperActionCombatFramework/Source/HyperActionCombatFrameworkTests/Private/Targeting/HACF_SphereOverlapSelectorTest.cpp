@@ -55,7 +55,10 @@ namespace HyperActionCombatFrameworkTests
 			Config->Selectors.Add(NewObject<UHACF_TargetSelector_SphereOverlap>(Config));
 			UHACF_TargetingExecutor* Executor = NewObject<UHACF_TargetingExecutor>();
 
-			const FHACF_TargetingResult Result = Executor->Execute(MakeRequest(Config, &Source));
+			FHACF_TargetingRequest Request = MakeRequest(Config, &Source);
+			// 검색 중심은 SourceActor 위치로 자동 결정되지 않으며, 요청의 Origin을 사용한다.
+			Request.Origin = Source.GetActorLocation();
+			const FHACF_TargetingResult Result = Executor->Execute(Request);
 			ASSERT_THAT(IsTrue(Result.IsSuccess()));
 			ASSERT_THAT(AreEqual(1, Result.Candidates.Num()));
 			ASSERT_THAT(IsTrue(Result.Candidates[0].TargetActor.Get() == &InRange));

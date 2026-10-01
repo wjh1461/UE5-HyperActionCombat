@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "Targeting/HACF_TargetingConfig.h"
 #include "Targeting/HACF_TargetingExecutor.h"
+#include "Targeting/Processor/HACF_TargetFilter_ActorForwardSectorAndRange.h"
 #include "Targeting/HACF_TargetingTestProcessors.h"
 
 #include <limits>
@@ -23,6 +24,15 @@ namespace HyperActionCombatFrameworkTests
 			return Candidate;
 		}
 
+		FHACF_TargetingCandidate MakeActorCandidate(AActor& Actor, const float Score = 0.0f)
+		{
+			FHACF_TargetingCandidate Candidate;
+			Candidate.TargetActor = &Actor;
+			Candidate.TargetLocation = Actor.GetActorLocation();
+			Candidate.Score = Score;
+			return Candidate;
+		}
+
 		FHACF_TargetingRequest MakeRequest(UHACF_TargetingConfig* Config)
 		{
 			FHACF_TargetingRequest Request;
@@ -34,6 +44,161 @@ namespace HyperActionCombatFrameworkTests
 	TEST_CLASS(FHACF_TargetingSystemTest, "HyperActionCombat.Tests.Targeting")
 	{
 		FActorTestSpawner Spawner;
+
+		TEST_METHOD(Execute_CrossSelectorDuplicatesPreserveFirstMetadataBeforeLimit)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->MaxTargets = 2;
+			AActor& FirstActor = Spawner.SpawnActor<AActor>();
+			AActor& SecondActor = Spawner.SpawnActor<AActor>();
+			UHACF_TargetingTestSelector* First = NewObject<UHACF_TargetingTestSelector>(Config);
+			UHACF_TargetingTestSelector* Second = NewObject<UHACF_TargetingTestSelector>(Config);
+			FHACF_TargetingCandidate Original = MakeActorCandidate(FirstActor, 5.0f);
+			Original.TargetLocation = FVector(10.0, 20.0, 30.0);
+			Original.bHasDirection = true;
+			Original.TargetDirection = FVector::RightVector;
+			Original.bHasHitResult = true;
+			Original.HitResult.ImpactPoint = Original.TargetLocation;
+			FHACF_TargetingCandidate InvalidFirst = MakeActorCandidate(FirstActor, std::numeric_limits<float>::infinity());
+			First->Behavior.CandidatesToAdd = {InvalidFirst, Original};
+			Second->Behavior.CandidatesToAdd = {MakeActorCandidate(FirstActor, 100.0f),
+				MakeLocationCandidate(FVector(100.0, 0.0, 0.0)), MakeActorCandidate(SecondActor, 5.0f)};
+			Config->Selectors = {First, Second};
+			const FHACF_TargetingResult Result = NewObject<UHACF_TargetingExecutor>()->Execute(MakeRequest(Config));
+			ASSERT_THAT(AreEqual(2, Result.Candidates.Num()));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].TargetActor.Get() == &FirstActor));
+			ASSERT_THAT(IsTrue(Result.Candidates[1].TargetActor.Get() == &SecondActor));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].TargetLocation.Equals(Original.TargetLocation)));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].bHasDirection));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].TargetDirection.Equals(Original.TargetDirection)));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].bHasHitResult));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].HitResult.ImpactPoint.Equals(Original.HitResult.ImpactPoint)));
+			ASSERT_THAT(IsTrue(FMath::IsNearlyEqual(5.0f, Result.Candidates[0].Score)));
+			ASSERT_THAT(AreEqual(uint32(1), Result.Candidates[0].StableSortIndex));
+			ASSERT_THAT(AreEqual(uint32(4), Result.Candidates[1].StableSortIndex));
+		}
+
+		TEST_METHOD(Execute_ExclusionsApplyWithoutFiltersAndRespectSourceToggle)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->MaxTargets = 4;
+			AActor& Source = Spawner.SpawnActor<AActor>();
+			AActor& Excluded = Spawner.SpawnActor<AActor>();
+			AActor& Included = Spawner.SpawnActor<AActor>();
+			UHACF_TargetingTestSelector* Selection = NewObject<UHACF_TargetingTestSelector>(Config);
+			Selection->Behavior.CandidatesToAdd = {MakeActorCandidate(Source), MakeActorCandidate(Excluded), MakeActorCandidate(Included)};
+			Config->Selectors = {Selection};
+			FHACF_TargetingRequest Request = MakeRequest(Config);
+			Request.SourceActor = &Source;
+			Request.ExcludedActors.Add(&Excluded);
+			UHACF_TargetingExecutor* Executor = NewObject<UHACF_TargetingExecutor>();
+			Config->bExcludeSourceActor = true;
+			const FHACF_TargetingResult ExcludingSelf = Executor->Execute(Request);
+			ASSERT_THAT(AreEqual(1, ExcludingSelf.Candidates.Num()));
+			ASSERT_THAT(IsTrue(ExcludingSelf.Candidates[0].TargetActor.Get() == &Included));
+			Config->bExcludeSourceActor = false;
+			const FHACF_TargetingResult KeepingSelf = Executor->Execute(Request);
+			ASSERT_THAT(AreEqual(2, KeepingSelf.Candidates.Num()));
+			ASSERT_THAT(IsTrue(KeepingSelf.Candidates[0].TargetActor.Get() == &Source));
+		}
+
+		TEST_METHOD(Execute_SelectionCleanupPrecedesFiltersAndScorers)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->TargetCategory = EHACF_TargetCategory::Location;
+			UHACF_TargetingTestSelector* Selection = NewObject<UHACF_TargetingTestSelector>(Config);
+			UHACF_TargetingTestFilter* Filter = NewObject<UHACF_TargetingTestFilter>(Config);
+			UHACF_TargetingTestScorer* Scorer = NewObject<UHACF_TargetingTestScorer>(Config);
+			Selection->Behavior.CandidatesToAdd = {FHACF_TargetingCandidate(), MakeActorCandidate(Spawner.SpawnActor<AActor>()),
+				MakeLocationCandidate(FVector(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0)), MakeLocationCandidate(FVector(100.0, 0.0, 0.0))};
+			Config->Selectors = {Selection};
+			Config->Filters = {Filter};
+			Config->Scorers = {Scorer};
+			const FHACF_TargetingResult Result = NewObject<UHACF_TargetingExecutor>()->Execute(MakeRequest(Config));
+			ASSERT_THAT(IsTrue(Result.IsSuccess()));
+			ASSERT_THAT(AreEqual(1, Filter->Behavior.ObservedCandidates.Num()));
+			ASSERT_THAT(AreEqual(1, Scorer->Behavior.ObservedCandidates.Num()));
+			ASSERT_THAT(AreEqual(uint32(3), Filter->Behavior.ObservedCandidates[0].StableSortIndex));
+			ASSERT_THAT(AreEqual(uint32(3), Scorer->Behavior.ObservedCandidates[0].StableSortIndex));
+		}
+
+		TEST_METHOD(Execute_CleanupRemovingAllCandidatesSkipsRemainingStages)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			UHACF_TargetingTestSelector* Selection = NewObject<UHACF_TargetingTestSelector>(Config);
+			UHACF_TargetingTestFilter* Filter = NewObject<UHACF_TargetingTestFilter>(Config);
+			UHACF_TargetingTestScorer* Scorer = NewObject<UHACF_TargetingTestScorer>(Config);
+			AActor& Excluded = Spawner.SpawnActor<AActor>();
+			Selection->Behavior.CandidatesToAdd = {MakeActorCandidate(Excluded)};
+			Config->Selectors = {Selection};
+			Config->Filters = {Filter};
+			Config->Scorers = {Scorer};
+			FHACF_TargetingRequest Request = MakeRequest(Config);
+			Request.ExcludedActors.Add(&Excluded);
+			const FHACF_TargetingResult Result = NewObject<UHACF_TargetingExecutor>()->Execute(Request);
+			ASSERT_THAT(IsTrue(Result.Status == EHACF_TargetingResultStatus::NoCandidates));
+			ASSERT_THAT(AreEqual(0, Filter->Behavior.ExecuteCount));
+			ASSERT_THAT(AreEqual(0, Scorer->Behavior.ExecuteCount));
+		}
+
+		TEST_METHOD(Execute_LocationDuplicatesRemainDistinct)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->TargetCategory = EHACF_TargetCategory::Location;
+			Config->MaxTargets = 4;
+			UHACF_TargetingTestSelector* Selection = NewObject<UHACF_TargetingTestSelector>(Config);
+			Selection->Behavior.CandidatesToAdd = {MakeLocationCandidate(FVector(100.0, 0.0, 0.0)),
+				MakeLocationCandidate(FVector(100.0, 0.0, 0.0), 0.0f, true, FVector::RightVector)};
+			Config->Selectors = {Selection};
+			const FHACF_TargetingResult Result = NewObject<UHACF_TargetingExecutor>()->Execute(MakeRequest(Config));
+			ASSERT_THAT(AreEqual(2, Result.Candidates.Num()));
+			ASSERT_THAT(IsFalse(Result.Candidates[0].bHasDirection));
+			ASSERT_THAT(IsTrue(Result.Candidates[1].bHasDirection));
+		}
+
+		TEST_METHOD(Execute_FinalCleanupRemovesCandidatesAddedByScorer)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			Config->MaxTargets = 2;
+			AActor& Included = Spawner.SpawnActor<AActor>();
+			AActor& Excluded = Spawner.SpawnActor<AActor>();
+			AActor& Source = Spawner.SpawnActor<AActor>();
+			UHACF_TargetingTestSelector* Selection = NewObject<UHACF_TargetingTestSelector>(Config);
+			UHACF_TargetingTestScorer* Scorer = NewObject<UHACF_TargetingTestScorer>(Config);
+			Selection->Behavior.CandidatesToAdd = {MakeActorCandidate(Included, 1.0f)};
+			Scorer->Behavior.CandidatesToAdd = {MakeActorCandidate(Included, 100.0f), MakeActorCandidate(Excluded, 100.0f),
+				MakeActorCandidate(Source, 100.0f), FHACF_TargetingCandidate(), MakeLocationCandidate(FVector(100.0, 0.0, 0.0), 100.0f)};
+			Config->Selectors = {Selection};
+			Config->Scorers = {Scorer};
+			Config->bExcludeSourceActor = true;
+			FHACF_TargetingRequest Request = MakeRequest(Config);
+			Request.SourceActor = &Source;
+			Request.ExcludedActors.Add(&Excluded);
+			const FHACF_TargetingResult Result = NewObject<UHACF_TargetingExecutor>()->Execute(Request);
+			ASSERT_THAT(AreEqual(1, Result.Candidates.Num()));
+			ASSERT_THAT(IsTrue(Result.Candidates[0].TargetActor.Get() == &Included));
+			ASSERT_THAT(IsTrue(FMath::IsNearlyEqual(1.0f, Result.Candidates[0].Score)));
+		}
+
+		TEST_METHOD(ForwardSector_SourceExclusionRespectsConfigWhenCalledDirectly)
+		{
+			UHACF_TargetingConfig* Config = NewObject<UHACF_TargetingConfig>();
+			AActor& Source = Spawner.SpawnActor<AActor>();
+			UHACF_TargetFilter_ActorForwardSectorAndRange* Filter = NewObject<UHACF_TargetFilter_ActorForwardSectorAndRange>(Config);
+			FHACF_TargetingRequest Request = MakeRequest(Config);
+			Request.SourceActor = &Source;
+			Request.Origin = Source.GetActorLocation();
+			FHACF_TargetingExecutionContext Context;
+			ASSERT_THAT(IsTrue(Context.Initialize(Request)));
+			Config->bExcludeSourceActor = false;
+			Context.Candidates = {MakeActorCandidate(Source)};
+			ASSERT_THAT(IsTrue(Filter->Filter(Context) == EHACF_TargetingProcessResult::Success));
+			ASSERT_THAT(AreEqual(1, Context.Candidates.Num()));
+			Config->bExcludeSourceActor = true;
+			Context.Candidates = {MakeActorCandidate(Source)};
+			ASSERT_THAT(IsTrue(Filter->Filter(Context) == EHACF_TargetingProcessResult::Success));
+			ASSERT_THAT(IsTrue(Context.Candidates.IsEmpty()));
+		}
 
 		TEST_METHOD(Execute_ValidRequestWithoutProcessors_ReturnsNoCandidates)
 		{

@@ -20,6 +20,7 @@ struct FHACF_TargetingTestProcessorBehavior
 	int32 ExecutionToken = INDEX_NONE;
 	TArray<int32>* ExecutionOrder = nullptr;
 
+	mutable TArray<FHACF_TargetingCandidate> ObservedCandidates;
 	mutable int32 ExecuteCount = 0;
 	mutable TArray<EHACF_TargetingPhase> ObservedPhases;
 	mutable TArray<int32> ObservedProcessorIndices;

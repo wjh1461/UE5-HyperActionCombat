@@ -23,6 +23,9 @@ public:
 	FHACF_TargetingResult Execute(const FHACF_TargetingRequest& TargetingRequest) const;
 	
 private:
+	// 최초 유효 Actor 후보와 부가 정보를 보존하며, Location 후보는 중복 제거하지 않는다.
+	void NormalizeCandidates(TArray<FHACF_TargetingCandidate>& Candidates, const FHACF_TargetingExecutionContext& Context) const;
+
 	bool ExecuteSelectors(const TArray<TObjectPtr<UHACF_TargetSelector>>& Selectors, FHACF_TargetingExecutionContext& Context) const;
 	bool ExecuteFilters(const TArray<TObjectPtr<UHACF_TargetFilter>>& Filters, FHACF_TargetingExecutionContext& Context) const;
 	bool ExecuteScorers(const TArray<TObjectPtr<UHACF_TargetScorer>>& Scorers, FHACF_TargetingExecutionContext& Context) const;
