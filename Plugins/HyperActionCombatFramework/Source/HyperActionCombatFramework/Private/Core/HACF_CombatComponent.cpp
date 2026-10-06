@@ -9,6 +9,7 @@
 #include "HACF_LogChannels.h"
 #include "AbilitySystem/Abilities/HACF_GameplayAbility.h"
 #include "GameFramework/PlayerState.h"
+#include "Targeting/HACF_TargetingService.h"
 
 const FName UHACF_CombatComponent::NAME_ActorFeatureName("HACF.Combat");
 
@@ -16,6 +17,53 @@ UHACF_CombatComponent::UHACF_CombatComponent(const FObjectInitializer& ObjectIni
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = false;
+}
+
+FHACF_TargetingResult UHACF_CombatComponent::ExecuteTargeting(const FHACF_TargetingRequest& TargetingRequest)
+{
+	FHACF_TargetingResult Result;
+	APawn* Pawn = GetPawn<APawn>();
+	if (!IsValid(Pawn))
+	{
+		Result.Reset(EHACF_TargetingResultStatus::InvalidRequest);
+		return Result;
+	}
+
+	UObject* TargetingService = TargetingServiceObject.Get();
+	if (!IsValid(TargetingService))
+	{
+		Result.Reset(EHACF_TargetingResultStatus::ServiceUnavailable);
+		return Result;
+	}
+
+	FHACF_TargetingRequest EffectiveRequest = TargetingRequest;
+	EffectiveRequest.SourceActor = Pawn;
+	if (!EffectiveRequest.RequestOwner.IsValid())
+	{
+		EffectiveRequest.RequestOwner = this;
+	}
+
+	return IHACF_TargetingService::Execute_ExecuteTargeting(TargetingService, EffectiveRequest);
+}
+
+bool UHACF_CombatComponent::RefreshTargetingService()
+{
+	TargetingServiceObject.Reset();
+
+	APawn* Pawn = GetPawn<APawn>();
+	if (!IsValid(Pawn))
+	{
+		return false;
+	}
+
+	UActorComponent* TargetingService = Pawn->FindComponentByInterface(UHACF_TargetingService::StaticClass());
+	if (!IsValid(TargetingService))
+	{
+		return false;
+	}
+
+	TargetingServiceObject = TargetingService;
+	return true;
 }
 
 // Called every frame
@@ -40,6 +88,8 @@ void UHACF_CombatComponent::OnRegister()
 void UHACF_CombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+	RefreshTargetingService();
 	
 	//BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
 	
@@ -50,6 +100,8 @@ void UHACF_CombatComponent::BeginPlay()
 
 void UHACF_CombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	TargetingServiceObject.Reset();
+
 	UnregisterInitStateFeature();
 	UninitializeFromASC();
 	
